@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+.vercel/
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+.DS_Store
+*.log
