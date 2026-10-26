@@ -108,6 +108,9 @@ export function Queue({
               q.findings.map((f) => (
                 <div key={f.id} className="finding" style={{ padding: "10px 12px" }}>
                   <h4>{f.message}</h4>
+                  <div className="todo-action">
+                    <b>O que fazer:</b> {f.action}
+                  </div>
                   <div className="meta">
                     {AGENT_LABEL[f.agent]} · {f.rule}
                   </div>

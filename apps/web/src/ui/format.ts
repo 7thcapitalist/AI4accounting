@@ -33,6 +33,26 @@ export function when(tick: number): string {
 }
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const MESES = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+];
+/** "2026-09" -> "setembro/2026" */
+export function monthLabel(competence: string): string {
+  const [y, m] = competence.split("-");
+  return `${MESES[Number(m) - 1] ?? m}/${y}`;
+}
+
 export function money(cents: number): string {
   return BRL.format(cents / 100);
 }

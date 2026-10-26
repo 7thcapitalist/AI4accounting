@@ -5,6 +5,7 @@ import {
   type AgentId,
   approve,
   createSim,
+  type Phase,
   returnToAgent,
   type SimState,
   selectAccountantQueue,
@@ -13,51 +14,77 @@ import {
   selectNeedsAccountant,
   step,
 } from "../sim";
+import { AgentDrawer } from "./AgentDrawer";
 import { AgentsView } from "./AgentsView";
 import { Board } from "./Board";
 import { ClientDrawer } from "./ClientDrawer";
+import { HowItWorks } from "./HowItWorks";
 import { Icon } from "./icons";
+import { PhaseDrawer } from "./PhaseDrawer";
 import { Queue } from "./Queue";
 
-type View = "painel" | "fila" | "agentes";
+type View = "painel" | "fila" | "agentes" | "como";
+type Panel =
+  | { kind: "client"; id: string }
+  | { kind: "phase"; clientId: string; phase: Phase }
+  | { kind: "agent"; id: AgentId };
+
 const SEED = 2026;
-const SPEEDS = [1, 2, 4] as const;
-const BASE_MS = 900;
+/** The month is already under way when the page opens (about day 3 of the close). */
+const WARM_TICKS = 15;
+const TICK_MS = { normal: 3500, rapido: 700 } as const;
+
+/**
+ * Opens the month already under way: the agents have worked for a few days and the clients the
+ * accountant approved earlier (the ones with no exceptions) are already delivered.
+ */
+function warmStart(seed: number): SimState {
+  let s = createSim(seed);
+  for (let i = 0; i < WARM_TICKS; i++) {
+    s = step(s);
+    if (i < WARM_TICKS - 4) {
+      for (const q of selectAccountantQueue(s))
+        if (q.findings.length === 0) s = approve(s, q.client.id);
+    }
+  }
+  return s;
+}
 
 export function App() {
-  const [sim, setSim] = useState<SimState>(() => createSim(SEED));
-  const [running, setRunning] = useState(false);
-  const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(2);
+  const [sim, setSim] = useState<SimState>(() => warmStart(SEED));
+  const [paused, setPaused] = useState(false);
+  const [speed, setSpeed] = useState<keyof typeof TICK_MS>("normal");
   const [view, setView] = useState<View>("painel");
-  const [openClient, setOpenClient] = useState<string | null>(null);
+  const [panel, setPanel] = useState<Panel | null>(null);
 
   const finished = selectIsFinished(sim);
   const needsAccountant = selectNeedsAccountant(sim);
   const queue = useMemo(() => selectAccountantQueue(sim), [sim]);
+  const live = !paused && !finished && !needsAccountant;
 
-  // The month runs on its own; it only stops when everything is delivered or waiting for the accountant.
+  // The agents work on their own: one step every few seconds until everything waits for the accountant.
   useEffect(() => {
-    if (!running || finished || needsAccountant) return;
-    const id = setInterval(() => setSim((s) => step(s)), BASE_MS / speed);
+    if (!live) return;
+    const id = setInterval(() => setSim((s) => step(s)), TICK_MS[speed]);
     return () => clearInterval(id);
-  }, [running, speed, finished, needsAccountant]);
+  }, [live, speed]);
 
   const onApprove = useCallback((clientId: string) => setSim((s) => approve(s, clientId)), []);
   const onReturn = useCallback(
     (clientId: string, agent?: AgentId) => setSim((s) => returnToAgent(s, clientId, agent)),
     [],
   );
-  const reset = () => {
-    setSim(createSim(SEED));
-    setRunning(false);
-    setOpenClient(null);
+  const close = useCallback(() => setPanel(null), []);
+  const go = (v: View) => {
+    setView(v);
+    window.scrollTo({ top: 0 });
   };
 
-  const started = sim.tick > 0;
   const nav: { id: View; label: string; icon: string; badge?: number }[] = [
     { id: "painel", label: "Painel do mês", icon: "grid" },
     { id: "fila", label: "Fila do contador", icon: "queue", badge: queue.length },
     { id: "agentes", label: "Agentes", icon: "bot" },
+    { id: "como", label: "Como funciona", icon: "info" },
   ];
 
   return (
@@ -76,10 +103,7 @@ export function App() {
               key={n.id}
               type="button"
               aria-current={view === n.id ? "page" : undefined}
-              onClick={() => {
-                setView(n.id);
-                window.scrollTo({ top: 0 });
-              }}
+              onClick={() => go(n.id)}
             >
               <Icon name={n.icon} />
               {n.label}
@@ -87,98 +111,108 @@ export function App() {
             </button>
           ))}
         </nav>
-        <div className="side-foot">Protótipo com dados simulados. Nenhum cliente real.</div>
+        <div className="sim-box">
+          <span>Simulação · dados fictícios</span>
+          <div className="sim-ctrl">
+            <button
+              type="button"
+              onClick={() => setPaused((p) => !p)}
+              aria-label={paused ? "Retomar" : "Pausar"}
+            >
+              <Icon name={paused ? "play" : "pause"} size={12} />
+            </button>
+            <button
+              type="button"
+              aria-pressed={speed === "rapido"}
+              onClick={() => setSpeed((v) => (v === "rapido" ? "normal" : "rapido"))}
+            >
+              {speed === "rapido" ? "rápido" : "normal"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSim(warmStart(SEED));
+                setPanel(null);
+              }}
+              aria-label="Recomeçar a simulação"
+            >
+              <Icon name="reset" size={12} />
+            </button>
+          </div>
+        </div>
       </aside>
 
       <main className="main">
         <header className="head">
           <div>
             <h1>Fechamento de setembro/2026</h1>
-            <p className="num">
-              {started
-                ? `Hoje é ${selectDay(sim)} de outubro · ${sim.clients.length} clientes · 7 agentes`
-                : `${sim.clients.length} clientes · 7 agentes prontos para começar`}
-            </p>
-          </div>
-          <div className="controls">
-            <fieldset className="seg" aria-label="Velocidade">
-              {SPEEDS.map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  aria-pressed={speed === v}
-                  onClick={() => setSpeed(v)}
-                >
-                  {v}x
-                </button>
-              ))}
-            </fieldset>
-            <button type="button" className="btn" onClick={reset} title="Reiniciar o mês">
-              <Icon name="reset" size={14} />
-              Reiniciar
-            </button>
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() => setRunning((r) => !r)}
-              disabled={finished}
-            >
-              <Icon name={running && !needsAccountant ? "pause" : "play"} size={14} />
+            <p className="num status-line">
+              <span className={`live-dot${live ? " on" : ""}`} />
               {finished
-                ? "Mês fechado"
-                : running && !needsAccountant
-                  ? "Pausar"
-                  : started
-                    ? "Continuar"
-                    : "Rodar o mês"}
-            </button>
+                ? "Mês fechado: todos os clientes entregues."
+                : live
+                  ? `Os agentes estão trabalhando · dia ${selectDay(sim)} de outubro · ${sim.clients.length} clientes`
+                  : needsAccountant
+                    ? `Os agentes terminaram o que podiam · ${queue.length} ${queue.length === 1 ? "cliente espera" : "clientes esperam"} você`
+                    : "Simulação pausada"}
+            </p>
           </div>
         </header>
 
-        {needsAccountant && (
-          <div className="banner">
-            <span>
-              Os agentes terminaram o que podiam. <b>{queue.length}</b>{" "}
-              {queue.length === 1 ? "cliente espera" : "clientes esperam"} a sua aprovação.
-            </span>
-            <button
-              type="button"
-              className="btn sm"
-              onClick={() => {
-                setView("fila");
-                window.scrollTo({ top: 0 });
-              }}
-            >
-              Abrir a fila
-            </button>
-          </div>
+        {view === "painel" && (
+          <Board
+            sim={sim}
+            queue={queue}
+            live={live}
+            onClient={(id) => setPanel({ kind: "client", id })}
+            onPhase={(clientId, phase) => setPanel({ kind: "phase", clientId, phase })}
+            onAgent={(id) => setPanel({ kind: "agent", id })}
+            onQueue={() => go("fila")}
+          />
         )}
-        {finished && (
-          <div className="banner done">
-            <span>Todos os clientes entregues. O mês está fechado.</span>
-          </div>
-        )}
-
-        {view === "painel" && <Board sim={sim} onOpen={setOpenClient} running={running} />}
         {view === "fila" && (
           <Queue
             sim={sim}
             queue={queue}
             onApprove={onApprove}
             onReturn={onReturn}
-            onOpen={setOpenClient}
+            onOpen={(id) => setPanel({ kind: "client", id })}
           />
         )}
-        {view === "agentes" && <AgentsView sim={sim} />}
+        {view === "agentes" && (
+          <AgentsView sim={sim} onAgent={(id) => setPanel({ kind: "agent", id })} />
+        )}
+        {view === "como" && <HowItWorks onAgent={(id) => setPanel({ kind: "agent", id })} />}
       </main>
 
-      {openClient && (
+      {panel?.kind === "client" && (
         <ClientDrawer
           sim={sim}
-          clientId={openClient}
-          onClose={() => setOpenClient(null)}
+          clientId={panel.id}
+          onClose={close}
           onApprove={onApprove}
           onReturn={onReturn}
+          onPhase={(phase) => setPanel({ kind: "phase", clientId: panel.id, phase })}
+          onAgent={(id) => setPanel({ kind: "agent", id })}
+        />
+      )}
+      {panel?.kind === "phase" && (
+        <PhaseDrawer
+          sim={sim}
+          clientId={panel.clientId}
+          phase={panel.phase}
+          onClose={close}
+          onPhase={(phase) => setPanel({ kind: "phase", clientId: panel.clientId, phase })}
+          onClient={() => setPanel({ kind: "client", id: panel.clientId })}
+          onAgent={(id) => setPanel({ kind: "agent", id })}
+        />
+      )}
+      {panel?.kind === "agent" && (
+        <AgentDrawer
+          sim={sim}
+          agentId={panel.id}
+          onClose={close}
+          onClient={(id) => setPanel({ kind: "client", id })}
         />
       )}
     </div>

@@ -1,26 +1,45 @@
 import type { CSSProperties } from "react";
 import {
   AGENT_BY_PHASE,
+  type AgentId,
   type ClientProgress,
   PHASES,
   type Phase,
+  type QueueItem,
   type Regime,
   type SimState,
   selectAgentStats,
   selectKpis,
 } from "../sim";
+import { phaseState } from "./content";
 import { Feed } from "./Feed";
 import { AGENT_LABEL, agentOf, isPresumido, PHASE_LABEL } from "./format";
 import { Icon } from "./icons";
 
+const SHORT_REGIME: Record<Regime, string> = {
+  SimplesAnexoI: "Simples · Anexo I",
+  SimplesAnexoIII: "Simples · Anexo III",
+  SimplesAnexoV: "Simples · Anexo V",
+  LucroPresumido: "Lucro Presumido",
+  ClinicaMedica: "Presumido · clínica",
+};
+
 export function Board({
   sim,
-  onOpen,
-  running,
+  queue,
+  live,
+  onClient,
+  onPhase,
+  onAgent,
+  onQueue,
 }: {
   sim: SimState;
-  onOpen: (clientId: string) => void;
-  running: boolean;
+  queue: QueueItem[];
+  live: boolean;
+  onClient: (clientId: string) => void;
+  onPhase: (clientId: string, phase: Phase) => void;
+  onAgent: (id: AgentId) => void;
+  onQueue: () => void;
 }) {
   const k = selectKpis(sim);
   const stats = selectAgentStats(sim);
@@ -28,9 +47,44 @@ export function Board({
 
   return (
     <>
+      <section className="needs-you card" aria-label="Precisa de você">
+        <div className="card-head">
+          Precisa de você
+          {queue.length > 3 && (
+            <button type="button" className="link-btn" onClick={onQueue}>
+              ver os {queue.length} na fila do contador
+            </button>
+          )}
+        </div>
+        {queue.length === 0 ? (
+          <p className="needs-empty">
+            Nada agora. Os agentes chamam você quando um cliente estiver pronto para aprovar.
+          </p>
+        ) : (
+          <ul>
+            {queue.slice(0, 3).map((q) => {
+              const f = q.findings[0];
+              return (
+                <li key={q.client.id}>
+                  <button type="button" onClick={() => onClient(q.client.id)}>
+                    <b>{q.client.name}</b>
+                    <span>
+                      {f
+                        ? `${q.findings.length} ${q.findings.length === 1 ? "ponto" : "pontos"} para decidir. ${f.action}`
+                        : "Tudo conferido, sem exceções. Só falta aprovar."}
+                    </span>
+                    <em>{f ? "Revisar" : "Aprovar"} →</em>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
       <section className="kpis" aria-label="Indicadores do mês">
         <div className="kpi">
-          <div className="kpi-label">Clientes fechados</div>
+          <div className="kpi-label">Clientes entregues</div>
           <div className="kpi-value num">
             {k.closedClients}
             <small> / {k.totalClients}</small>
@@ -77,9 +131,14 @@ export function Board({
 
       <section className="agents" aria-label="Agentes">
         {stats.map((s) => {
-          const busy = s.activeClients > 0 && running;
+          const busy = s.activeClients > 0 && live;
           return (
-            <div key={s.agent.id} className="agent-chip">
+            <button
+              key={s.agent.id}
+              type="button"
+              className="agent-chip"
+              onClick={() => onAgent(s.agent.id)}
+            >
               <span
                 className={`avatar${busy ? " live" : ""}`}
                 style={{ background: s.agent.color, "--c": s.agent.color } as CSSProperties}
@@ -89,10 +148,10 @@ export function Board({
               <b>{AGENT_LABEL[s.agent.id]}</b>
               <span className="muted num">
                 {s.activeClients > 0
-                  ? `${s.activeClients} em andamento`
+                  ? `trabalhando em ${s.activeClients}`
                   : `${s.actions} ${s.actions === 1 ? "ação" : "ações"}`}
               </span>
-            </div>
+            </button>
           );
         })}
       </section>
@@ -100,8 +159,8 @@ export function Board({
       <div className="work">
         <section className="card">
           <div className="card-head">
-            Clientes × fases
-            <span>clique no cliente para ver o que cada agente fez</span>
+            Clientes × etapas
+            <span>clique numa etapa para ver o que o agente fez</span>
           </div>
           <div className="board-scroll">
             <table className="board">
@@ -128,7 +187,7 @@ export function Board({
                   return (
                     <tr key={c.id}>
                       <td>
-                        <button type="button" className="client-btn" onClick={() => onOpen(c.id)}>
+                        <button type="button" className="client-btn" onClick={() => onClient(c.id)}>
                           <strong>{c.name}</strong>
                           <span className={`pill${isPresumido(c) ? " presumido" : ""}`}>
                             {SHORT_REGIME[c.regime]}
@@ -141,7 +200,8 @@ export function Board({
                             phase={ph}
                             p={p}
                             flags={open.filter((f) => f.phase === ph).length}
-                            onOpen={() => onOpen(c.id)}
+                            onPhase={() => onPhase(c.id, ph)}
+                            onClient={() => onClient(c.id)}
                           />
                         </td>
                       ))}
@@ -152,59 +212,65 @@ export function Board({
             </table>
           </div>
         </section>
-        <Feed sim={sim} onOpen={onOpen} />
+        <Feed sim={sim} onOpen={onClient} />
       </div>
     </>
   );
 }
 
-const SHORT_REGIME: Record<Regime, string> = {
-  SimplesAnexoI: "Simples · Anexo I",
-  SimplesAnexoIII: "Simples · Anexo III",
-  SimplesAnexoV: "Simples · Anexo V",
-  LucroPresumido: "Lucro Presumido",
-  ClinicaMedica: "Presumido · clínica",
-};
-
 function Cell({
   phase,
   p,
   flags,
-  onOpen,
+  onPhase,
+  onClient,
 }: {
   phase: Phase;
   p: ClientProgress;
   flags: number;
-  onOpen: () => void;
+  onPhase: () => void;
+  onClient: () => void;
 }) {
-  const idx = PHASES.indexOf(phase);
-  const cur = PHASES.indexOf(p.phase);
   const agent = agentOf(AGENT_BY_PHASE[phase]);
+  const state = phaseState(p, phase);
+  const title = `${PHASE_LABEL[phase]}: ver o que foi feito`;
 
-  if (p.status === "done" || idx < cur) {
+  if (state === "done") {
     return flags ? (
-      <div className="cell flag">
+      <button type="button" className="cell flag" onClick={onPhase} title={title}>
         <span className="count num">{flags}</span> exceção
-      </div>
+      </button>
     ) : (
-      <div className="cell done" title="Concluído">
+      <button
+        type="button"
+        className="cell done"
+        onClick={onPhase}
+        title={title}
+        aria-label={title}
+      >
         <Icon name="check" />
-      </div>
+      </button>
     );
   }
-  if (idx > cur) return <div className="cell">·</div>;
-  if (p.status === "awaiting_approval") {
+  if (state === "not_started") return <div className="cell">·</div>;
+  if (state === "waiting_you") {
     return (
-      <button type="button" className="wait-btn" onClick={onOpen}>
+      <button type="button" className="wait-btn" onClick={onClient}>
         Revisar
       </button>
     );
   }
-  if (p.status === "waiting") return <div className="cell">na fila</div>;
+  if (state === "queued") return <div className="cell">na fila</div>;
   return (
-    <div className="cell working" style={{ "--c": agent.color } as CSSProperties}>
+    <button
+      type="button"
+      className="cell working"
+      style={{ "--c": agent.color } as CSSProperties}
+      onClick={onPhase}
+      title={title}
+    >
       <span className="pulse" />
       {AGENT_LABEL[agent.id]}
-    </div>
+    </button>
   );
 }

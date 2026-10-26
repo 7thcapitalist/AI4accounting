@@ -82,6 +82,8 @@ export interface Finding {
   rule: string;
   /** Official source (fictional scenario, real legal reference). */
   source: string;
+  /** What the accountant should do about it, pt-BR. */
+  action: string;
   status: "open" | "resolved";
   resolution?: "approved" | "returned";
 }
