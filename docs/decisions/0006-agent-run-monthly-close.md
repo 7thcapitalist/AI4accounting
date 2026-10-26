@@ -1,5 +1,5 @@
-# 0006: Agent-run monthly fiscal close for Simples Nacional
-Status: proposed
+# 0006: Agent-run monthly fiscal close for Simples Nacional (and MEI, see 0009)
+Status: proposed (amended by [0009](0009-mei-and-simples-ladder.md): scope is MEI and Simples Nacional)
 Date: 2026-10-26
 Deciders: Joao Vitor
 

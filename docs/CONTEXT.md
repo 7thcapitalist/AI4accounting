@@ -38,7 +38,7 @@ The firm's core system is an accounting ERP (Dominio, Alterdata, Questor and oth
 
 ## First product: agent-run monthly fiscal close
 
-Decided in [`docs/decisions/0006-agent-run-monthly-close.md`](decisions/0006-agent-run-monthly-close.md) (supersedes 0003): a team of agents runs the monthly fiscal close of Simples Nacional companies (capture, collection, checking, reconciliation, tax, delivery) and the accountant reviews exceptions and approves. External services: [0007](decisions/0007-external-services.md). Runtime and LLM: [0008](decisions/0008-agent-runtime-and-llm.md). Plan: [`docs/ROADMAP.md`](ROADMAP.md).
+Decided in [`docs/decisions/0006-agent-run-monthly-close.md`](decisions/0006-agent-run-monthly-close.md) (supersedes 0003): a team of agents runs the monthly fiscal close of MEI and Simples Nacional companies (capture, collection, checking, reconciliation, tax, delivery) and the accountant reviews exceptions and approves. External services: [0007](decisions/0007-external-services.md). Runtime and LLM: [0008](decisions/0008-agent-runtime-and-llm.md). MEI and the MEI to Simples ladder (amends 0006): [0009](decisions/0009-mei-and-simples-ladder.md). Plan: [`docs/ROADMAP.md`](ROADMAP.md).
 
 ## Long-term direction
 
