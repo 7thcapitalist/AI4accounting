@@ -114,6 +114,9 @@ describe("parseNfse", () => {
     expect(
       code(() => parseNfse(nfse().replace('<DPS versao="1.00">', '<DPS versao="1.01">'), opt)),
     ).toBe("invalid_field");
+    expect(code(() => parseNfse(nfse().replace('<DPS versao="1.00">', "<DPS>"), opt))).toBe(
+      "missing_field",
+    );
     expect(
       code(() =>
         parseNfse(
@@ -162,8 +165,36 @@ describe("parseNfse", () => {
       `<prest><CNPJ>${PREST}</CNPJ><xNome>Nome na DPS</xNome>`,
     );
     expect(parseNfse(withNome, { clientCnpj: PREST }).prestador.xNome).toBe("Nome na DPS");
-    // emit of a different CNPJ is not used
-    const other = nfse().replace(`<emit><CNPJ>${PREST}`, `<emit><CNPJ>${TOMA}`);
+    // emit of a different CNPJ is not used for the prestador name (tpEmit=2: emit is the tomador)
+    const other = nfse()
+      .replace(`<emit><CNPJ>${PREST}`, `<emit><CNPJ>${TOMA}`)
+      .replace("<tpEmit>1</tpEmit>", "<tpEmit>2</tpEmit>");
     expect(parseNfse(other, { clientCnpj: PREST }).prestador.xNome).toBeUndefined();
+  });
+
+  it("takes emitenteCnpj from infNFSe/emit according to tpEmit", () => {
+    const opt = { clientCnpj: PREST };
+    const asTomador = nfse()
+      .replace(`<emit><CNPJ>${PREST}`, `<emit><CNPJ>${TOMA}`)
+      .replace("<tpEmit>1</tpEmit>", "<tpEmit>2</tpEmit>");
+    expect(parseNfse(asTomador, opt)).toMatchObject({
+      emitenteCnpj: TOMA,
+      prestador: { cnpj: PREST },
+      destinatarioCnpj: TOMA,
+    });
+    const interm = "11111111000191";
+    const asInterm = nfse()
+      .replace(`<emit><CNPJ>${PREST}`, `<emit><CNPJ>${interm}`)
+      .replace("<tpEmit>1</tpEmit>", "<tpEmit>3</tpEmit>");
+    expect(parseNfse(asInterm, opt)).toMatchObject({
+      emitenteCnpj: interm,
+      prestador: { cnpj: PREST },
+    });
+    // tpEmit=1 but emit is not the prestador, or tpEmit invalid
+    const bad = nfse().replace(`<emit><CNPJ>${PREST}`, `<emit><CNPJ>${TOMA}`);
+    expect(code(() => parseNfse(bad, opt))).toBe("invalid_field");
+    expect(
+      code(() => parseNfse(nfse().replace("<tpEmit>1</tpEmit>", "<tpEmit>4</tpEmit>"), opt)),
+    ).toBe("invalid_field");
   });
 });
