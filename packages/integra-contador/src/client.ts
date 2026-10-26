@@ -45,9 +45,20 @@ export class IntegraContadorError extends Error {
 }
 
 const digits = (value: string) => value.replace(/\D/g, "");
-const documentType = (value: string) => (digits(value).length === 11 ? 1 : 2);
 
-const party = (value: string) => ({ numero: digits(value), tipo: documentType(value) });
+/** Normalizes a CPF/CNPJ to digits and rejects anything that is not 11 (CPF) or 14 (CNPJ) digits. */
+export function normalizeDocument(value: string): string {
+  const numero = digits(value);
+  if (numero.length !== 11 && numero.length !== 14) {
+    throw new IntegraContadorError("CPF/CNPJ must have 11 or 14 digits", 0);
+  }
+  return numero;
+}
+
+const party = (value: string) => {
+  const numero = normalizeDocument(value);
+  return { numero, tipo: numero.length === 11 ? 1 : 2 };
+};
 
 /**
  * Reads credentials from env (see .env.example). Throws if any is missing; values are never logged.
@@ -70,6 +81,35 @@ export function configFromEnv(
   };
 }
 
+/** Accepts only the official trial endpoint over HTTPS (no userinfo, port, query or hash). */
+function assertTrialBaseUrl(raw: string): string {
+  const refuse = () =>
+    new IntegraContadorError(
+      "Only the official Serpro demonstration endpoint is allowed (production is task 5.2)",
+      0,
+    );
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw refuse();
+  }
+  const official = new URL(TRIAL_BASE_URL);
+  const path = url.pathname.replace(/\/$/, "");
+  if (
+    url.protocol !== "https:" ||
+    url.host !== official.host ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    path !== official.pathname
+  ) {
+    throw refuse();
+  }
+  return TRIAL_BASE_URL;
+}
+
 export class IntegraContadorClient {
   private readonly baseUrl: string;
   private readonly doFetch: typeof fetch;
@@ -77,13 +117,7 @@ export class IntegraContadorClient {
   private procuradorToken: string | undefined;
 
   constructor(private readonly config: IntegraConfig) {
-    this.baseUrl = (config.baseUrl ?? TRIAL_BASE_URL).replace(/\/$/, "");
-    if (!this.baseUrl.includes("integra-contador-trial")) {
-      throw new IntegraContadorError(
-        "Only the demonstration environment is allowed (production is task 5.2)",
-        0,
-      );
-    }
+    this.baseUrl = assertTrialBaseUrl(config.baseUrl ?? TRIAL_BASE_URL);
     this.doFetch = config.fetch ?? fetch;
   }
 

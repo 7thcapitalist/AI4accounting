@@ -1,0 +1,6 @@
+{
+  "status": 200,
+  "responseId": "synthetic-sicalc",
+  "mensagens": [{ "codigo": "[Sucesso-SICALC]", "texto": "DARF gerado." }],
+  "dados": "{\"valorTotal\":1234,\"codigoReceita\":\"2089\",\"pdf\":\"U1lOVEhFVElD\"}"
+}

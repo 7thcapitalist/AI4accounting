@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { configFromEnv, IntegraContadorClient, IntegraContadorError } from "./client";
 import caixa from "./fixtures/caixapostal-indicador63.json";
+import dctf from "./fixtures/dctfweb-consrecibo32.json";
 import noProc from "./fixtures/error-no-procuracao.json";
 import consDecl from "./fixtures/pgdasd-consdeclaracao13.json";
 import gerarDasFx from "./fixtures/pgdasd-gerardas12.json";
+import sicalc from "./fixtures/sicalc-darf51.json";
 import sitfisFx from "./fixtures/sitfis-protocolo91.json";
 import {
   consultarDeclaracoes,
+  consultarReciboDctfWeb,
+  emitirDarf,
   emitirRelatorioSitfis,
   gerarDas,
   indicadorNovasMensagens,
@@ -119,6 +123,85 @@ describe("IntegraContadorClient", () => {
       httpStatus: 403,
       message: "Sem procuração para o contribuinte.",
     });
+  });
+
+  it("calls DCTFWeb CONSRECIBO32 via Consultar", async () => {
+    const { client, calls } = setup(dctf);
+    const res = await consultarReciboDctfWeb(client, CNPJ, {
+      categoria: "GERAL_MENSAL",
+      anoPA: "2025",
+      mesPA: "01",
+    });
+    expect(calls[0]?.url.endsWith("/Consultar")).toBe(true);
+    expect(calls[0]?.body.pedidoDados).toMatchObject({
+      idSistema: "DCTFWEB",
+      idServico: "CONSRECIBO32",
+    });
+    expect(JSON.parse(calls[0]?.body.pedidoDados.dados ?? "")).toEqual({
+      categoria: "GERAL_MENSAL",
+      anoPA: "2025",
+      mesPA: "01",
+    });
+    expect(res.dados).toMatchObject({ numeroRecibo: "SYNTHETIC-RECIBO" });
+  });
+
+  it("calls SICALC CONSOLIDARGERARDARF51 via Emitir", async () => {
+    const { client, calls } = setup(sicalc);
+    const res = await emitirDarf(client, CNPJ, { codigoReceita: "2089" });
+    expect(calls[0]?.url.endsWith("/Emitir")).toBe(true);
+    expect(calls[0]?.body.pedidoDados).toMatchObject({
+      idSistema: "SICALC",
+      idServico: "CONSOLIDARGERARDARF51",
+    });
+    expect(res.dados).toMatchObject({ codigoReceita: "2089" });
+  });
+
+  it.each([
+    "https://gateway.apiserpro.serpro.gov.br.evil.com/integra-contador-trial/v1",
+    "https://evil.com/integra-contador-trial/v1",
+    "https://evil.com/x?integra-contador-trial",
+    "https://gateway.apiserpro.serpro.gov.br@evil.com/integra-contador-trial/v1",
+    "https://integra-contador-trial.evil.com/v1",
+    "http://gateway.apiserpro.serpro.gov.br/integra-contador-trial/v1",
+    "https://gateway.apiserpro.serpro.gov.br/integra-contador-trial/v1/../../x",
+    "https://gateway.apiserpro.serpro.gov.br/integra-contador-trial/v1?x=1",
+    "not a url",
+  ])("refuses malicious base URL %s", (baseUrl) => {
+    expect(
+      () =>
+        new IntegraContadorClient({
+          accessToken: "a",
+          jwtToken: "b",
+          contratante: FIRM,
+          autorPedidoDados: FIRM,
+          baseUrl,
+        }),
+    ).toThrow(IntegraContadorError);
+  });
+
+  it("accepts the official trial URL with a trailing slash", () => {
+    expect(
+      () =>
+        new IntegraContadorClient({
+          accessToken: "a",
+          jwtToken: "b",
+          contratante: FIRM,
+          autorPedidoDados: FIRM,
+          baseUrl: "https://gateway.apiserpro.serpro.gov.br/integra-contador-trial/v1/",
+        }),
+    ).not.toThrow();
+  });
+
+  it.each(["123", "1234567890123", "", "abc"])("rejects invalid document %j", async (doc) => {
+    const { client, calls } = setup(caixa);
+    await expect(indicadorNovasMensagens(client, doc)).rejects.toThrow(/11 or 14 digits/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("normalizes formatted CNPJ to digits", async () => {
+    const { client, calls } = setup(caixa);
+    await indicadorNovasMensagens(client, "11.222.333/0001-81");
+    expect(calls[0]?.body.contribuinte).toEqual({ numero: CNPJ, tipo: 2 });
   });
 
   it("refuses non-trial base URLs", () => {

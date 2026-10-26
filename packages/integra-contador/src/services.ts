@@ -1,4 +1,4 @@
-import type { IntegraContadorClient, IntegraResponse } from "./client";
+import { type IntegraContadorClient, type IntegraResponse, normalizeDocument } from "./client";
 
 // Service ids come from the official Catalogo de Servicos of Integra Contador
 // (apicenter.estaleiro.serpro.gov.br/documentacao/api-integra-contador/).
@@ -69,10 +69,13 @@ export const obterProcuracao = (
   c: IntegraContadorClient,
   outorgante: string,
   outorgado: string,
-): Promise<IntegraResponse> =>
-  c.call("Consultar", outorgante, "PROCURACOES", "OBTERPROCURACAO41", "1", {
-    outorgante,
-    tipoOutorgante: outorgante.length === 11 ? "1" : "2",
-    outorgado,
-    tipoOutorgado: outorgado.length === 11 ? "1" : "2",
+): Promise<IntegraResponse> => {
+  const from = normalizeDocument(outorgante);
+  const to = normalizeDocument(outorgado);
+  return c.call("Consultar", from, "PROCURACOES", "OBTERPROCURACAO41", "1", {
+    outorgante: from,
+    tipoOutorgante: from.length === 11 ? "1" : "2",
+    outorgado: to,
+    tipoOutorgado: to.length === 11 ? "1" : "2",
   });
+};
