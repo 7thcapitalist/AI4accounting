@@ -43,6 +43,9 @@ function buildDocuments(clients: Client[], rng: Rng): Document[] {
   const docs: Document[] = [];
   for (const c of clients) {
     const count = rng.int(4, 8);
+    // Invoices split the month's revenue unevenly (as real sales do); the statement carries the total.
+    const weights = Array.from({ length: count - 1 }, () => rng.int(5, 20));
+    const sum = weights.reduce((a, b) => a + b, 0);
     for (let i = 0; i < count; i++) {
       const kind =
         i === 0
@@ -55,7 +58,10 @@ function buildDocuments(clients: Client[], rng: Rng): Document[] {
         clientId: c.id,
         kind,
         number: String(rng.int(100, 9999)),
-        amountCents: Math.round(c.monthlyRevenueCents / count / 100) * 100,
+        amountCents:
+          i === 0
+            ? c.monthlyRevenueCents
+            : Math.round((c.monthlyRevenueCents * (weights[i - 1] ?? 1)) / sum / 10) * 10,
       });
     }
   }
