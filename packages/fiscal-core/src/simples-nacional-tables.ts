@@ -25,7 +25,11 @@ const R = (reais: number): Centavos => reais * 100;
 
 /** LC 123/2006 art. 3, II: ceiling of R$ 4.800.000,00 of annual gross revenue. */
 export const SIMPLES_CEILING: Centavos = R(4_800_000);
-/** LC 123/2006 art. 19, I (R$ 3.600.000,00): above it, ICMS/ISS are collected outside the DAS (CGSN 140/2018 art. 13). */
+/**
+ * LC 123/2006 art. 19: default state sublimit for ICMS/ISS (R$ 3.600.000,00; R$ 1.800.000,00 only in
+ * states that adopt the optional one). RBT12 above it does NOT by itself bar ICMS/ISS from the DAS:
+ * that depends on the RBA/RBAA (Manual PGDAS-D 2018 v4 sec. 8.4), see `DasInput.icmsIssBarred`.
+ */
 export const SIMPLES_SUBLIMIT: Centavos = R(3_600_000);
 
 const LIMITS = [180_000, 360_000, 720_000, 1_800_000, 3_600_000, 4_800_000].map(R);

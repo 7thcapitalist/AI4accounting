@@ -43,7 +43,12 @@ const GOLDEN: [string, Annex, number, number, number, number][] = [
 describe("Simples Nacional golden cases", () => {
   it.each(GOLDEN)("%s", (_label, annex, rbt12, revenue, rate, das) => {
     expect(effectiveRate(annex, R(rbt12))).toBe(rate);
-    const result = calculateDas({ annex, rbt12: R(rbt12), revenue: R(revenue) });
+    const result = calculateDas({
+      annex,
+      rbt12: R(rbt12),
+      revenue: R(revenue),
+      icmsIssBarred: rbt12 > 3_600_000 ? true : undefined,
+    });
     expect(result.total).toBe(Math.round(das * 100));
     expect(Object.values(result.taxes).reduce((a, b) => a + b, 0)).toBe(result.total);
   });
@@ -121,6 +126,108 @@ describe("fator R (LC 123/2006 art. 18 par. 5-J and 5-M)", () => {
     });
     expect(v.annex).toBe("V");
     expect(v.total).toBe(R(3_300));
+  });
+});
+
+describe("exact DAS fraction (CGSN 140/2018 art. 21; Manual PGDAS-D sec. 12: all decimals)", () => {
+  it("does not truncate the effective rate before multiplying by the revenue", () => {
+    // Annex I, RBT12 180.001,38, revenue 123.456,78: rate = 4,000055...%; truncated to 4 decimals
+    // (4,0000%) gave 4.938,27; the exact fraction gives 4.938,30.
+    const r = calculateDas({ annex: "I", rbt12: 18_000_138, revenue: 12_345_678 });
+    expect(r.total).toBe(493_830);
+    expect(Object.values(r.taxes).reduce((a, b) => a + b, 0)).toBe(493_830);
+  });
+});
+
+describe("RBT12 above R$ 3,6 mi (CGSN 140/2018 art. 21, III, b; Manual sec. 12, ex. 8)", () => {
+  const base = { annex: "III", rbt12: R(4_500_000), revenue: R(600_000) } as const;
+
+  it("requires the explicit sublimit state", () => {
+    expect(() => calculateDas(base)).toThrow(/icmsIssBarred/);
+  });
+
+  it("not barred: federal by the 6th band, ISS by the 5th band formula, capped at 5%", () => {
+    // Official example (P1 = 600.000): 600.000 x 24,69968% = 148.198,08.
+    const r = calculateDas({ ...base, icmsIssBarred: false });
+    expect(r.total).toBe(14_819_808);
+    // The manual rounds each percentage to 5 decimals for teaching (federal taxes differ by up to
+    // R$ 0,21); the PGDAS-D uses all decimals, so the split below is the exact fraction.
+    expect(r.taxes).toEqual({
+      IRPJ: 3_945_688,
+      CSLL: 1_708_727,
+      COFINS: 1_916_147,
+      PIS: 414_835,
+      CPP: 3_834_411,
+      ISS: R(30_000),
+    });
+  });
+
+  it("barred: only the federal taxes of the 6th band (18,60% x 600.000 = 111.600,00)", () => {
+    const r = calculateDas({ ...base, icmsIssBarred: true });
+    expect(r.total).toBe(R(111_600));
+    expect(r.taxes.ISS).toBeUndefined();
+    expect(Object.values(r.taxes).reduce((a, b) => a + b, 0)).toBe(R(111_600));
+  });
+
+  it("Annex I not barred adds the 5th band ICMS share (33,5% x 9,935%)", () => {
+    // Annex I 6th band, RBT12 4.000.000: 9,55% federal + ICMS from the 5th band:
+    // (4.000.000 x 14,3% - 87.300) / 4.000.000 = 12,1175% x 33,5% = 4,05936...%
+    const open = calculateDas({
+      annex: "I",
+      rbt12: R(4_000_000),
+      revenue: R(100_000),
+      icmsIssBarred: false,
+    });
+    const barred = calculateDas({
+      annex: "I",
+      rbt12: R(4_000_000),
+      revenue: R(100_000),
+      icmsIssBarred: true,
+    });
+    expect(barred.total).toBe(R(9_550));
+    expect(open.taxes.ICMS).toBe(405_936); // 100.000 x 12,1175% x 33,5% = 4.059,36
+    expect(open.total).toBe(R(9_550) + 405_936);
+  });
+
+  it("barred below R$ 3,6 mi leaves ICMS/ISS out and keeps the federal values", () => {
+    const full = calculateDas({ annex: "I", rbt12: R(300_000), revenue: R(25_000) });
+    const barred = calculateDas({
+      annex: "I",
+      rbt12: R(300_000),
+      revenue: R(25_000),
+      icmsIssBarred: true,
+    });
+    expect(barred.taxes.ICMS).toBeUndefined();
+    expect(barred.taxes.CPP).toBe(full.taxes.CPP);
+    expect(barred.total).toBe(full.total - (full.taxes.ICMS as number));
+  });
+});
+
+describe("zero denominators (Manual PGDAS-D sec. 8.2 / 8.1)", () => {
+  it("FS12 = 0 and RBT12 = 0 gives Annex V (fator r 0,01)", () => {
+    expect(annexByFatorR(0, 0)).toBe("V");
+  });
+  it("FS12 = 0 and RBT12 > 0 gives Annex V", () => {
+    expect(annexByFatorR(0, R(100_000))).toBe("V");
+  });
+  it("FS12 > 0 and RBT12 = 0 gives Annex III (fator r 0,28)", () => {
+    expect(annexByFatorR(1, 0)).toBe("III");
+  });
+  it("rejects negative or non integer payroll and RBT12", () => {
+    expect(() => annexByFatorR(-1, R(1_000))).toThrow();
+    expect(() => annexByFatorR(1.5, R(1_000))).toThrow();
+    expect(() => annexByFatorR(1, -1)).toThrow();
+    expect(() => annexByFatorR(1, 0.5)).toThrow();
+  });
+  it("fator r is truncated to 2 decimals: 0,2774 is Annex V", () => {
+    expect(annexByFatorR(R(277_400), R(1_000_000))).toBe("V");
+  });
+  it("effective rate with RBT12 = 0 uses R$ 1,00 (band 1, 4% Annex I)", () => {
+    expect(effectiveRate("I", 0)).toBe(40_000);
+    expect(calculateDas({ annex: "I", rbt12: 0, revenue: R(1_000) }).total).toBe(R(40));
+    expect(
+      calculateDas({ annex: "FATOR_R", rbt12: 0, revenue: R(1_000), payroll12: 1 }).annex,
+    ).toBe("III");
   });
 });
 
