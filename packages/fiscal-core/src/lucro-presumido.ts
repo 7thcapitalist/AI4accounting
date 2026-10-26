@@ -46,8 +46,16 @@ export function retencoesServico(valor: Centavos, competencia: string): Retencoe
   };
 }
 
+function checkedRetencoes(r: Retencoes): Retencoes {
+  checked(r.irrf);
+  checked(r.csll);
+  checked(r.pis);
+  checked(r.cofins);
+  return r;
+}
+
 export function somarRetencoes(list: Retencoes[]): Retencoes {
-  return list.reduce(
+  return list.map(checkedRetencoes).reduce(
     (a, b) => ({
       irrf: a.irrf + b.irrf,
       csll: a.csll + b.csll,
@@ -107,7 +115,8 @@ const SERVICE_ACTIVITIES: ReadonlySet<PresumidoActivity> = new Set([
 export function apurarMesPresumido(input: MesPresumidoInput): MesPresumidoResult {
   const r = presumidoRulesFor(input.competencia);
   const receitaBruta = input.receitas.reduce((s, x) => s + checked(x.receitaBruta), 0);
-  const retencoes = input.retencoes ?? NO_RETENCOES;
+  const retencoes = checkedRetencoes(input.retencoes ?? NO_RETENCOES);
+  const issRetido = checked(input.issRetido ?? 0);
 
   const servicos = input.receitas
     .filter((x) => SERVICE_ACTIVITIES.has(x.activity))
@@ -125,7 +134,7 @@ export function apurarMesPresumido(input: MesPresumidoInput): MesPresumidoResult
     receitaBruta,
     pis: aplicarRetencao(mulBp(receitaBruta, r.pisRateBp), retencoes.pis),
     cofins: aplicarRetencao(mulBp(receitaBruta, r.cofinsRateBp), retencoes.cofins),
-    iss: aplicarRetencao(mulBp(servicos, issBp), input.issRetido ?? 0),
+    iss: aplicarRetencao(mulBp(servicos, issBp), issRetido),
   };
 }
 
@@ -169,7 +178,7 @@ export function apurarTrimestrePresumido(input: TrimestrePresumidoInput): Trimes
   }
   const r = presumidoRulesFor(input.competenciaFim);
   const outras = checked(input.outrasReceitas ?? 0);
-  const retencoes = input.retencoes ?? NO_RETENCOES;
+  const retencoes = checkedRetencoes(input.retencoes ?? NO_RETENCOES);
 
   const baseIrpj =
     input.receitas.reduce(

@@ -180,4 +180,24 @@ describe("monthly PIS, COFINS and ISS", () => {
       }),
     ).toThrow();
   });
+
+  it("rejects negative, fractional and unsafe withholdings in every public entry", () => {
+    const zero = { irrf: 0, csll: 0, pis: 0, cofins: 0 };
+    const bad = [-1, 0.5, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1];
+    for (const v of bad) {
+      for (const k of ["irrf", "csll", "pis", "cofins"] as const) {
+        const retencoes = { ...zero, [k]: v };
+        expect(() =>
+          apurarMesPresumido({ competencia: "2026-02", receitas: [], retencoes }),
+        ).toThrow();
+        expect(() =>
+          apurarTrimestrePresumido({ competenciaFim: "2026-03", receitas: [], retencoes }),
+        ).toThrow();
+        expect(() => somarRetencoes([zero, retencoes])).toThrow();
+      }
+      expect(() =>
+        apurarMesPresumido({ competencia: "2026-02", receitas: [], issRetido: v }),
+      ).toThrow();
+    }
+  });
 });
