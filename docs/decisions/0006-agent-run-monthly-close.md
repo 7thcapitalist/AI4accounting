@@ -1,5 +1,5 @@
 # 0006: Agent-run monthly fiscal close for Simples Nacional
-Status: proposed
+Status: proposed (amended by [0009](0009-target-segment-simples-and-up.md): v1 is Simples Nacional + Lucro Presumido, MEI out)
 Date: 2026-10-26
 Deciders: Joao Vitor
 
@@ -14,7 +14,7 @@ The first product is **the monthly fiscal close of a Simples Nacional company, r
 - Deterministic rules do the work; the LLM handles judgment and language. The Tax agent never uses an LLM: exact code with cited sources (LC 123/2006 as amended by LC 155/2016, Resolucao CGSN 140/2018) and golden tests.
 - Money is integer centavos. Every agent output traces to its source document.
 - The product sits beside the firm's ERP (Dominio, Alterdata, Questor) and feeds it.
-- Out of v1: DP (payroll), full bookkeeping, Lucro Presumido and Lucro Real.
+- Out of v1: DP (payroll), full bookkeeping, Lucro Real and MEI (Lucro Presumido enters as second regime, see 0009).
 - Collection drafts messages to the client but never sends them in v1.
 
 ## Consequences
