@@ -12,3 +12,6 @@ coverage/
 *.pem
 .DS_Store
 *.log
+
+# simulator output (pnpm --filter @ai4a/simulator sim)
+sim-out/
