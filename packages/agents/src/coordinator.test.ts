@@ -32,11 +32,13 @@ describe("simulated month", () => {
     const log = async (seed: number) => {
       const st = await openStore(":memory:");
       await runSimMonth(st, seed);
+      // Ids are random UUIDs, so the log is compared with them masked.
+      const mask = (p: string) => p.replace(/(task|run|finding|approval)-[0-9a-f-]{36}/g, "$1-ID");
       const ev = (await st.listEvents()).map(({ at, competenciaId, kind, payload }) => ({
         at,
         competenciaId,
         kind,
-        payload,
+        payload: mask(payload),
       }));
       st.close();
       return ev;
@@ -94,7 +96,44 @@ describe("Coordinator", () => {
       now,
     }).runCompetencia("c1");
     expect(out.status).toBe("blocked");
-    expect((await st.listEvents("c1")).some((e) => e.kind === "agent.failed")).toBe(true);
+    const kinds = (await st.listEvents("c1")).map((e) => e.kind);
+    expect(kinds).toContain("agent.started");
+    expect(kinds).toContain("agent.failed");
+    expect(kinds).not.toContain("agent.finished");
+  });
+
+  it("logs agent.started and agent.finished for every run", async () => {
+    const { st, now } = await setup();
+    await new Coordinator({
+      store: st,
+      agents: stubAgents(1),
+      approver: simApprover,
+      now,
+    }).runCompetencia("c1");
+    const ev = await st.listEvents("c1");
+    const started = ev.filter((e) => e.kind === "agent.started");
+    const finished = ev.filter((e) => e.kind === "agent.finished");
+    expect(started).toHaveLength(PHASES.length);
+    expect(finished.map((e) => JSON.parse(e.payload).runId)).toEqual(
+      started.map((e) => JSON.parse(e.payload).runId),
+    );
+    for (const s of started)
+      expect(ev.indexOf(s)).toBeLessThan(
+        ev.findIndex(
+          (e) =>
+            e.kind === "agent.finished" &&
+            JSON.parse(e.payload).runId === JSON.parse(s.payload).runId,
+        ),
+      );
+  });
+
+  it("two Coordinator instances share one store without id collisions", async () => {
+    const { st, now } = await setup();
+    await st.client.execute("INSERT INTO competencias VALUES ('c2','cl','2026-10')");
+    const mk = () =>
+      new Coordinator({ store: st, agents: stubAgents(1), approver: simApprover, now });
+    expect((await mk().runCompetencia("c1")).status).toBe("closed");
+    expect((await mk().runCompetencia("c2")).status).toBe("closed");
   });
 
   it("blocks when the accountant sends back", async () => {

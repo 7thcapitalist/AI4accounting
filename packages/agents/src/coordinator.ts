@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   agentRuns,
   approvals,
@@ -29,17 +30,18 @@ export interface CoordinatorDeps {
   approver: Approver;
   /** Monotonic clock; injected so event logs are reproducible. */
   now: () => number;
+  /** Id generator; defaults to random UUIDs so separate instances never collide in one store. */
+  newId?: () => string;
 }
 
 export type MonthOutcome = { status: "closed" } | { status: "blocked"; phase: Phase };
 
 /** Moves one (client, competencia) through Captura -> ... -> Entrega, logging every step. */
 export class Coordinator {
-  private n = 0;
   constructor(private d: CoordinatorDeps) {}
 
   private id(prefix: string): string {
-    return `${prefix}-${++this.n}`;
+    return `${prefix}-${(this.d.newId ?? randomUUID)()}`;
   }
 
   private async transition(cid: string, phase: Phase, to: PhaseStatus): Promise<void> {
@@ -70,6 +72,13 @@ export class Coordinator {
       await store.db
         .insert(agentRuns)
         .values({ id: runId, taskId, agent: agent.name, startedAt: this.d.now() });
+      await store.appendEvent({
+        at: this.d.now(),
+        competenciaId: cid,
+        kind: "agent.started",
+        agent: agent.name,
+        payload: { phase, taskId, runId },
+      });
       let blocked = false;
       try {
         const res = await agent.run({ taskId, competenciaId: cid, phase });
@@ -109,6 +118,13 @@ export class Coordinator {
           .set({ finishedAt: this.d.now() })
           .where(eq(agentRuns.id, runId));
         await store.db.update(tasks).set({ status: "done" }).where(eq(tasks.id, taskId));
+        await store.appendEvent({
+          at: this.d.now(),
+          competenciaId: cid,
+          kind: "agent.finished",
+          agent: agent.name,
+          payload: { phase, taskId, runId },
+        });
       } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
         await store.db
@@ -121,7 +137,7 @@ export class Coordinator {
           competenciaId: cid,
           kind: "agent.failed",
           agent: agent.name,
-          payload: { error },
+          payload: { phase, taskId, runId, error },
         });
         blocked = true;
       }
