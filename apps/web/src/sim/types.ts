@@ -143,9 +143,24 @@ export interface Kpis {
   closedClients: number;
   openExceptions: number;
   hoursSaved: number;
-  /** Days left until the PGDAS-D / DARF due date (can be negative). */
+  /** Days left until the nearest due date among the open clients (can be negative). */
   daysToDeadline: number;
+  /** Summary label, e.g. "PGDAS-D dia 20 · DARF dia 20". */
   deadlineLabel: string;
+  /** One deadline per obligation present in the portfolio. */
+  deadlines: ObligationDeadline[];
+}
+
+export interface ObligationDeadline {
+  obligation: Client["obligation"];
+  /** Due day of the month after the competence. */
+  dueDay: number;
+  daysLeft: number;
+  /** Clients with this obligation. */
+  clients: number;
+  /** Clients with this obligation already delivered. */
+  closed: number;
+  label: string;
 }
 
 export interface QueueItem {

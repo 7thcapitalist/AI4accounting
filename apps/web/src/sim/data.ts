@@ -165,11 +165,12 @@ export const FINDING_TEMPLATES: FindingTemplate[] = [
     phase: "Conferencia",
     severity: "alta",
     regimes: ["ClinicaMedica"],
-    message: "NFS-e {n} emitida para convênio sem retenção de IRRF e CSRF, enviada para revisão",
+    message:
+      "NFS-e {n} de serviço médico para operadora privada sem IRRF retido (exceção de ambulatório); CSRF a confirmar, enviada para revisão",
     reasoning:
-      "A nota é de serviço médico prestado a pessoa jurídica (convênio) e não traz IRRF nem CSRF (PIS/Cofins/CSLL) destacados. Se a retenção era devida, o valor líquido recebido não bate com o esperado e o DARF fica errado.",
-    rule: "Retenção de IRRF sobre serviços profissionais e de CSRF (PIS/Cofins/CSLL) em pagamentos de pessoa jurídica a pessoa jurídica.",
-    source: "Lei 9.430/1996, art. 64; IN RFB 1.234/2012",
+      "A tomadora é pessoa jurídica privada (operadora de plano de saúde), não órgão público: Lei 9.430/1996, art. 64 e IN RFB 1.234/2012 não se aplicam. Para IRRF de serviços profissionais vale o RIR/2018, art. 714, que exclui serviços de medicina prestados por ambulatório, então a ausência de IRRF na nota é esperada. A CSRF (PIS/Cofins/CSLL) privada segue a Lei 10.833/2003, art. 30 e a IN SRF 459/2004; o enquadramento do serviço depende da natureza da clínica e fica para decisão do contador.",
+    rule: "Pagamento privado: IRRF de serviços profissionais (RIR/2018, art. 714) não é retido em serviços de medicina prestados por ambulatório; CSRF privada (PIS/Cofins/CSLL) só se o serviço se enquadrar no art. 30 da Lei 10.833/2003.",
+    source: "RIR/2018 (Decreto 9.580/2018), art. 714; Lei 10.833/2003, art. 30; IN SRF 459/2004",
   },
   {
     agent: "Conferencia",

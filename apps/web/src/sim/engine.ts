@@ -17,8 +17,19 @@ import {
 
 export const TICKS_PER_DAY = 6;
 export const COMPETENCE = "2026-09";
-/** PGDAS-D due day of the month after the competence (LC 123/2006, art. 21, III). */
-export const DEADLINE_DAY = 20;
+/** Due day (month after the competence) per obligation. */
+export const DEADLINE_DAYS = {
+  /** PGDAS-D: LC 123/2006, art. 21, III. */
+  "PGDAS-D": 20,
+  /** DARF do Lucro Presumido (IRPJ/CSLL trimestrais, PIS/Cofins mensais): simplified to day 20 for the simulation. */
+  DARF: 20,
+} as const;
+export const DEADLINE_DAY = DEADLINE_DAYS["PGDAS-D"];
+
+/** Phases an accountant may send a client back to: agents upstream of Aprovacao only. */
+export const RETURNABLE_AGENTS: readonly AgentId[] = PHASES.filter(
+  (ph) => ph !== "Aprovacao" && ph !== "Entrega",
+).map((ph) => AGENT_BY_PHASE[ph]);
 
 function emptyCounters(): Record<AgentId, AgentCounters> {
   const out = {} as Record<AgentId, AgentCounters>;
@@ -268,7 +279,8 @@ export function returnToAgent(prev: SimState, clientId: string, agent?: AgentId)
   const client = clientOf(s, clientId);
   const open = s.findings.filter((f) => f.clientId === clientId && f.status === "open");
   const target = agent ?? open[0]?.agent ?? "Conferencia";
-  const phase = PHASES.find((ph) => AGENT_BY_PHASE[ph] === target && ph !== "Aprovacao");
+  if (!RETURNABLE_AGENTS.includes(target)) return prev;
+  const phase = PHASES.find((ph) => AGENT_BY_PHASE[ph] === target);
   if (!phase) return prev;
   for (const f of open) {
     f.status = "resolved";
