@@ -12,3 +12,5 @@ coverage/
 *.pem
 .DS_Store
 *.log
+
+*.tsbuildinfo
