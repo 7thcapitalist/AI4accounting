@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { configFromEnv, IntegraContadorClient, IntegraContadorError } from "./client";
+import autProc from "./fixtures/autenticaprocurador-envioxml81.json";
 import caixa from "./fixtures/caixapostal-indicador63.json";
 import dctf from "./fixtures/dctfweb-consrecibo32.json";
 import noProc from "./fixtures/error-no-procuracao.json";
@@ -8,6 +9,7 @@ import gerarDasFx from "./fixtures/pgdasd-gerardas12.json";
 import sicalc from "./fixtures/sicalc-darf51.json";
 import sitfisFx from "./fixtures/sitfis-protocolo91.json";
 import {
+  autenticaProcurador,
   consultarDeclaracoes,
   consultarReciboDctfWeb,
   emitirDarf,
@@ -114,6 +116,23 @@ describe("IntegraContadorClient", () => {
     client.setProcuradorToken("proc-token");
     await indicadorNovasMensagens(client, CNPJ);
     expect(calls[0]?.headers.autenticar_procurador_token).toBe("proc-token");
+  });
+
+  it("AUTENTICAPROCURADOR sends base64 XML and captures the etag for later calls", async () => {
+    const { client, calls } = setup(autProc, 200, { etag: '"etag-synthetic"' });
+    const xml = "<termo>sintetico</termo>";
+    await autenticaProcurador(client, CNPJ, xml);
+    const first = calls[0];
+    if (!first) throw new Error("no call");
+    expect(first.url.endsWith("/Apoiar")).toBe(true);
+    expect(first.body.pedidoDados.idSistema).toBe("AUTENTICAPROCURADOR");
+    expect(first.body.pedidoDados.idServico).toBe("ENVIOXMLASSINADO81");
+    expect(JSON.parse(first.body.pedidoDados.dados).xml).toBe(
+      Buffer.from(xml, "utf8").toString("base64"),
+    );
+    expect(first.headers.autenticar_procurador_token).toBeUndefined();
+    await indicadorNovasMensagens(client, CNPJ);
+    expect(calls[1]?.headers.autenticar_procurador_token).toBe("etag-synthetic");
   });
 
   it("raises a typed error with the API message", async () => {
