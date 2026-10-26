@@ -246,3 +246,97 @@ describe("limits and table integrity", () => {
     }
   });
 });
+
+describe("P1/P2 split in the month that crosses the sublimit (Manual PGDAS-D sec. 12, ex. 8-9)", () => {
+  // Ex. 8: Anexo III, RBT12 4.500.000, RBAA 1.500.000, RBA 4.000.000 (3.000.000 before), RPA 1.000.000.
+  const ex8 = {
+    annex: "III",
+    rbt12: R(4_500_000),
+    rbaa: R(1_500_000),
+    rba: R(4_000_000),
+    revenue: R(1_000_000),
+  } as const;
+
+  it("ex. 8: P1 = 600.000 (148.198,08) + P2 = 400.000 (97.863,40)", () => {
+    const r = calculateDas(ex8);
+    expect(r.split).toEqual({
+      p1Revenue: R(600_000),
+      p2Revenue: R(400_000),
+      p1Total: 14_819_808, // manual: 148.198,08
+      p2Total: 9_786_340, // manual: 97.863,39 (see below)
+    });
+    // The Manual prints R$ 246.061,47: its P2 table adds per-tax values rounded from percentages
+    // already rounded to 4-5 decimals (97.863,39), while 400.000 x 24,46585% is exactly 97.863,40.
+    // The exact fraction gives 246.061,48: one centavo above the printed figure, nothing else differs.
+    expect(r.total).toBe(24_606_148);
+    expect(Math.abs(r.total - 24_606_147)).toBeLessThanOrEqual(1);
+    expect(Object.values(r.taxes).reduce((a, b) => a + b, 0)).toBe(r.total);
+    expect(r.taxes.ISS).toBe(R(50_000)); // 5% x 1.000.000, capped in both parts
+  });
+
+  it("ex. 8 differs from applying the P1 formula to the whole RPA (24,69968% = 246.996,80)", () => {
+    const whole = calculateDas({ ...ex8, rba: undefined });
+    expect(whole.total).toBe(24_699_680);
+    expect(whole.split).toBeUndefined();
+  });
+
+  it("no split while the RBA stays within the sublimit", () => {
+    const r = calculateDas({ ...ex8, rba: R(3_600_000) });
+    expect(r.split).toBeUndefined();
+    expect(r.total).toBe(calculateDas({ ...ex8, rba: undefined }).total);
+  });
+
+  it("the whole RPA is P2 once the RBA before the month already exceeded the sublimit", () => {
+    const r = calculateDas({ ...ex8, rba: R(4_500_000), revenue: R(500_000) });
+    expect(r.split?.p1Revenue).toBe(0);
+    expect(r.split?.p2Revenue).toBe(R(500_000));
+    // 500.000 x (18,60% + 5,86585%) = 122.329,25
+    expect(r.total).toBe(12_232_925);
+  });
+
+  it("barred when the previous RBA is above 120% of the sublimit (4.320.000): no ICMS/ISS, no split", () => {
+    const r = calculateDas({ ...ex8, rba: R(4_400_000), revenue: R(10_000) });
+    expect(r.split).toBeUndefined();
+    expect(r.taxes.ISS).toBeUndefined();
+    expect(r.total).toBe(R(1_860)); // 18,60% x 10.000
+  });
+
+  it("barred when the RBAA is above the sublimit", () => {
+    const r = calculateDas({ ...ex8, rbaa: R(3_600_001), rba: undefined, revenue: R(10_000) });
+    expect(r.taxes.ISS).toBeUndefined();
+    expect(r.total).toBe(R(1_860));
+  });
+
+  it("explicit icmsIssBarred overrides the derived state", () => {
+    const r = calculateDas({ ...ex8, icmsIssBarred: true });
+    expect(r.split).toBeUndefined();
+    expect(r.total).toBe(R(186_000));
+  });
+
+  // Ex. 9: Anexo I, RBT12 3.200.000, RBA 2.000.000, RPA 300.000, sublimit 1.800.000 (optional).
+  it("ex. 9 (optional sublimit R$ 1,8 mi): P1 = 100.000, P2 = 200.000, ICMS of P2 by the 4th band", () => {
+    const r = calculateDas({
+      annex: "I",
+      rbt12: R(3_200_000),
+      rbaa: R(1_500_000),
+      rba: R(2_000_000),
+      revenue: R(300_000),
+      sublimit: R(1_800_000),
+    });
+    expect(r.split?.p1Revenue).toBe(R(100_000));
+    expect(r.split?.p2Revenue).toBe(R(200_000));
+    expect(r.split?.p1Total).toBe(1_157_188); // manual: 11.571,88
+    expect(r.split?.p2Total).toBe(2_172_209); // manual: 21.722,09 in the text, 21.722,10 in the table
+    expect(r.total).toBe(3_329_397); // manual: 33.293,98 (+1 centavo from its table rounding)
+    expect(r.taxes.ICMS).toBe(387_658 + 633_150); // P1 3.876,58 + P2 6.331,50
+  });
+
+  it("rejects a sublimit that is not one of the two legal values and an RBA below the revenue", () => {
+    expect(() => calculateDas({ ...ex8, sublimit: R(2_000_000) })).toThrow(/sublimit/);
+    expect(() => calculateDas({ ...ex8, rba: R(999_999) })).toThrow(/rba/);
+  });
+
+  it("requires rbaa or icmsIssBarred when RBT12 is above R$ 3,6 mi", () => {
+    expect(() => calculateDas({ ...ex8, rbaa: undefined })).toThrow(/icmsIssBarred or rbaa/);
+  });
+});
