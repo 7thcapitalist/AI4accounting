@@ -7,5 +7,7 @@ export * from "./lucro-presumido";
 export * from "./money";
 export * from "./nfe";
 export * from "./nfe-types";
+export * from "./nfse";
+export * from "./nfse-types";
 export * from "./simples-nacional";
 export * from "./types";
