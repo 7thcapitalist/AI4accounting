@@ -11,7 +11,7 @@ export function Feed({ sim, onOpen }: { sim: SimState; onOpen: (clientId: string
     <aside className="card feed" aria-label="Atividade dos agentes">
       <div className="card-head">
         Atividade dos agentes
-        <span className="num">{sim.feed.length} ações</span>
+        <span className="num">{sim.feed.length} {sim.feed.length === 1 ? "ação" : "ações"}</span>
       </div>
       {items.length <= 1 && sim.tick === 0 ? (
         <div className="empty">Aperte “Rodar o mês” para ver os agentes trabalhando.</div>
