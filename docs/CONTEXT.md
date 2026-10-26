@@ -36,15 +36,9 @@ The firm's core system is an accounting ERP (Dominio, Alterdata, Questor and oth
 - Errors cost fines. Correctness and auditability beat speed and features. Every agent output must be traceable to its source document.
 - The metric that matters: **hours saved per client per month at the same or lower error rate.**
 
-## First product: not decided yet
+## First product: fiscal capture and checking
 
-Candidates under evaluation:
-
-1. **Document collection**: chasing clients and gathering XMLs and documents.
-2. **Fiscal classification and checking**: importing, classifying and validating invoices and entries.
-3. **Bank reconciliation**: matching bank statements (OFX) against ledger entries.
-
-The choice goes in `docs/decisions/` once made. Until then, build only shared foundations and throwaway prototypes clearly labeled as such.
+Decided in [`docs/decisions/0003-first-product.md`](decisions/0003-first-product.md): automate the fiscal department, starting with capturing NF-e, CT-e and NFS-e and showing what is missing per client and competencia. Bank reconciliation waits.
 
 ## Long-term direction
 
