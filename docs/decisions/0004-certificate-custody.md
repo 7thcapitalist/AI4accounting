@@ -1,5 +1,5 @@
 # 0004: Custody of client digital certificates
-Status: proposed
+Status: deferred (v1 does not store client certificates, see 0007)
 Date: 2026-10-07
 Deciders: Joao Vitor
 

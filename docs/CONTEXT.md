@@ -36,9 +36,9 @@ The firm's core system is an accounting ERP (Dominio, Alterdata, Questor and oth
 - Errors cost fines. Correctness and auditability beat speed and features. Every agent output must be traceable to its source document.
 - The metric that matters: **hours saved per client per month at the same or lower error rate.**
 
-## First product: fiscal capture and checking
+## First product: agent-run monthly fiscal close
 
-Decided in [`docs/decisions/0003-first-product.md`](decisions/0003-first-product.md): automate the fiscal department, starting with capturing NF-e, CT-e and NFS-e and showing what is missing per client and competencia. Bank reconciliation waits.
+Decided in [`docs/decisions/0006-agent-run-monthly-close.md`](decisions/0006-agent-run-monthly-close.md) (supersedes 0003): a team of agents runs the monthly fiscal close of Simples Nacional companies (capture, collection, checking, reconciliation, tax, delivery) and the accountant reviews exceptions and approves. External services: [0007](decisions/0007-external-services.md). Runtime and LLM: [0008](decisions/0008-agent-runtime-and-llm.md). Plan: [`docs/ROADMAP.md`](ROADMAP.md).
 
 ## Long-term direction
 

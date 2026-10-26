@@ -1,5 +1,5 @@
 # 0003: First product is fiscal capture and checking
-Status: proposed
+Status: superseded by 0006
 Date: 2026-10-07
 Deciders: Joao Vitor
 
