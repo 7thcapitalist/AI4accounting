@@ -1,0 +1,6 @@
+{
+  "status": 200,
+  "responseId": "synthetic-2",
+  "mensagens": [{ "codigo": "[Sucesso-PGDASD]", "texto": "DAS gerado." }],
+  "dados": "[{\"detalhamento\":{\"numeroDas\":\"07202500000000000\",\"valorTotalDas\":1234},\"pdf\":\"U1lOVEhFVElD\"}]"
+}
