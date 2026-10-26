@@ -6,6 +6,7 @@ import {
   type SimState,
   selectAccountantQueue,
   selectAgentStats,
+  selectDay,
   selectDeadlines,
   selectIsFinished,
   selectKpis,
@@ -137,5 +138,19 @@ describe("sim", () => {
     expect(k.deadlineLabel).toMatch(/PGDAS-D.*IRPJ\/CSLL/);
     expect(k.deadlines).toHaveLength(2);
     expect(d.map((x) => x.dueDay)).toEqual([20, 30]);
+  });
+
+  it("daysToDeadline ignores obligations whose clients are all done", () => {
+    const base = createSim(1);
+    const pgdasIds = base.clients.filter((c) => c.obligation === "PGDAS-D").map((c) => c.id);
+    const s: SimState = {
+      ...base,
+      tick: 144,
+      progress: base.progress.map((p) =>
+        pgdasIds.includes(p.clientId) ? { ...p, status: "done" } : p,
+      ),
+    };
+    expect(selectDay(s)).toBe(25);
+    expect(selectKpis(s).daysToDeadline).toBe(5);
   });
 });
