@@ -49,7 +49,7 @@ export interface Client {
   /** Monthly revenue in centavos. */
   monthlyRevenueCents: number;
   /** Tax obligation produced by the closing. */
-  obligation: "PGDAS-D" | "DARF";
+  obligation: "PGDAS-D" | "IRPJ/CSLL";
   /** Tick at which the closing starts for this client (staggered). */
   startsAtTick: number;
 }
@@ -145,7 +145,7 @@ export interface Kpis {
   hoursSaved: number;
   /** Days left until the nearest due date among the open clients (can be negative). */
   daysToDeadline: number;
-  /** Summary label, e.g. "PGDAS-D dia 20 · DARF dia 20". */
+  /** Summary label, e.g. "PGDAS-D vence dia 20 · IRPJ/CSLL vence dia 30". */
   deadlineLabel: string;
   /** One deadline per obligation present in the portfolio. */
   deadlines: ObligationDeadline[];

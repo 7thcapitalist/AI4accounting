@@ -9,7 +9,7 @@ export function selectDay(s: SimState): number {
 
 export function selectDeadlines(s: SimState): ObligationDeadline[] {
   const out: ObligationDeadline[] = [];
-  for (const obligation of ["PGDAS-D", "DARF"] as const) {
+  for (const obligation of ["PGDAS-D", "IRPJ/CSLL"] as const) {
     const ids = s.clients.filter((c) => c.obligation === obligation).map((c) => c.id);
     if (!ids.length) continue;
     const dueDay = DEADLINE_DAYS[obligation];

@@ -39,7 +39,7 @@ export const AGENTS: Agent[] = [
   {
     id: "Apuracao",
     name: "Apuracao",
-    role: "Apura PGDAS-D e DARF",
+    role: "Apura PGDAS-D e IRPJ/CSLL",
     color: "#22c55e",
     icon: "calculator",
   },
@@ -141,7 +141,7 @@ export function buildClients(): Client[] {
     regime,
     regimeLabel: REGIME_LABEL[regime],
     monthlyRevenueCents,
-    obligation: regime.startsWith("Simples") ? "PGDAS-D" : "DARF",
+    obligation: regime.startsWith("Simples") ? "PGDAS-D" : "IRPJ/CSLL",
     startsAtTick: Math.floor(i * 1.5),
   }));
 }
@@ -166,11 +166,12 @@ export const FINDING_TEMPLATES: FindingTemplate[] = [
     severity: "alta",
     regimes: ["ClinicaMedica"],
     message:
-      "NFS-e {n} de serviço médico para operadora privada sem IRRF retido (exceção de ambulatório); CSRF a confirmar, enviada para revisão",
+      "NFS-e {n} de serviço médico para operadora privada sem IRRF e sem CSRF retidos (serviço de ambulatório), enviada para revisão",
     reasoning:
-      "A tomadora é pessoa jurídica privada (operadora de plano de saúde), não órgão público: Lei 9.430/1996, art. 64 e IN RFB 1.234/2012 não se aplicam. Para IRRF de serviços profissionais vale o RIR/2018, art. 714, que exclui serviços de medicina prestados por ambulatório, então a ausência de IRRF na nota é esperada. A CSRF (PIS/Cofins/CSLL) privada segue a Lei 10.833/2003, art. 30 e a IN SRF 459/2004; o enquadramento do serviço depende da natureza da clínica e fica para decisão do contador.",
-    rule: "Pagamento privado: IRRF de serviços profissionais (RIR/2018, art. 714) não é retido em serviços de medicina prestados por ambulatório; CSRF privada (PIS/Cofins/CSLL) só se o serviço se enquadrar no art. 30 da Lei 10.833/2003.",
-    source: "RIR/2018 (Decreto 9.580/2018), art. 714; Lei 10.833/2003, art. 30; IN SRF 459/2004",
+      "A tomadora é pessoa jurídica privada (operadora de plano de saúde), não órgão público: Lei 9.430/1996, art. 64 e IN RFB 1.234/2012 não se aplicam. Para IRRF de serviços profissionais vale o RIR/2018, art. 714, que exclui serviços de medicina prestados por ambulatório, então a ausência de IRRF na nota é esperada. A CSRF (CSLL/Cofins/PIS) privada é retida nas condições da Lei 10.833/2003, art. 30, e a IN SRF 459/2004, art. 1º, §2º, IV, aplica a ela os mesmos critérios do IRRF de serviços profissionais; a Solução de Consulta Cosit 6/2014 confirma que medicina efetivamente prestada por ambulatório fica fora dessas retenções. Fato do cenário: serviço prestado por ambulatório; se esse fato não fosse conhecido, nenhuma das exceções poderia ser aplicada.",
+    rule: "Pagamento privado: serviços de medicina prestados por ambulatório ficam fora do IRRF de serviços profissionais (RIR/2018, art. 714) e, pelos mesmos critérios, da CSRF (IN SRF 459/2004, art. 1º, §2º, IV); sem o fato ambulatório nenhuma exceção se aplica.",
+    source:
+      "RIR/2018 (Decreto 9.580/2018), art. 714; Lei 10.833/2003, art. 30; IN SRF 459/2004, art. 1º, §2º, IV; Solução de Consulta Cosit 6/2014",
   },
   {
     agent: "Conferencia",

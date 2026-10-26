@@ -21,8 +21,8 @@ export const COMPETENCE = "2026-09";
 export const DEADLINE_DAYS = {
   /** PGDAS-D: LC 123/2006, art. 21, III. */
   "PGDAS-D": 20,
-  /** DARF do Lucro Presumido (IRPJ/CSLL trimestrais, PIS/Cofins mensais): simplified to day 20 for the simulation. */
-  DARF: 20,
+  /** IRPJ/CSLL trimestral do Lucro Presumido: último dia útil do mês seguinte ao trimestre (Lei 9.430/1996, art. 5º). Competência 2026-09 fecha o 3º tri; outubro/2026 termina no sábado 31, então vence sexta 30. */
+  "IRPJ/CSLL": 30,
 } as const;
 export const DEADLINE_DAY = DEADLINE_DAYS["PGDAS-D"];
 

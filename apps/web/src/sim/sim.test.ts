@@ -67,14 +67,16 @@ describe("sim", () => {
   it("clinic raises the IRRF/CSRF finding in pt-BR with rule and source", () => {
     const s = runAutoApprove(3);
     const f = s.findings.find((x) => x.clientId === "c12" && x.agent === "Conferencia");
-    expect(f?.message).toMatch(/sem IRRF retido/);
+    expect(f?.message).toMatch(/sem IRRF e sem CSRF/);
     expect(f?.rule).toBeTruthy();
     expect(f?.source).toMatch(/RIR\/2018.*art\. 714/);
     expect(f?.source).toMatch(/Lei 10\.833\/2003, art\. 30/);
     expect(f?.source).toMatch(/IN SRF 459\/2004/);
     // Private payer: public-entity rules (Lei 9.430 art. 64, IN RFB 1.234) must not be cited as the basis.
     expect(f?.source).not.toMatch(/9\.430|1\.234/);
-    expect(f?.message).toMatch(/exceção de ambulatório/);
+    expect(f?.message).toMatch(/sem IRRF e sem CSRF/);
+    expect(f?.rule).toMatch(/CSRF/);
+    expect(f?.source).toMatch(/Cosit 6\/2014/);
     expect(f?.rule).toMatch(/ambulatório/);
     expect(
       s.feed.some((e) => e.text.startsWith("Conferencia: NFS-e") && e.kind === "finding"),
@@ -125,14 +127,15 @@ describe("sim", () => {
     expect(s.progress.find((x) => x.clientId === "c12")?.status).toBe("awaiting_approval");
   });
 
-  it("deadline KPI separates PGDAS-D and DARF clients", () => {
+  it("deadline KPI separates PGDAS-D and IRPJ/CSLL clients", () => {
     const s = createSim(1);
     const d = selectDeadlines(s);
-    expect(d.map((x) => x.obligation)).toEqual(["PGDAS-D", "DARF"]);
+    expect(d.map((x) => x.obligation)).toEqual(["PGDAS-D", "IRPJ/CSLL"]);
     expect(d[0]?.clients).toBe(8);
     expect(d[1]?.clients).toBe(4);
     const k = selectKpis(s);
-    expect(k.deadlineLabel).toMatch(/PGDAS-D.*DARF/);
+    expect(k.deadlineLabel).toMatch(/PGDAS-D.*IRPJ\/CSLL/);
     expect(k.deadlines).toHaveLength(2);
+    expect(d.map((x) => x.dueDay)).toEqual([20, 30]);
   });
 });
