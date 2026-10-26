@@ -112,6 +112,32 @@ describe("ICMS ST absent / present", () => {
 });
 
 describe("IBS/CBS (tax reform) group", () => {
+  it("keeps the IBSCBSTot fixture in XSD order (TIBSCBSMonoTot, PL 010g v1.03)", () => {
+    const tags = [...IBSCBS_TOT.matchAll(/<(\w+)>/g)].map((m) => m[1]);
+    expect(tags).toEqual([
+      "IBSCBSTot",
+      "vBCIBSCBS",
+      "gIBS",
+      "gIBSUF",
+      "vDif",
+      "vDevTrib",
+      "vIBSUF",
+      "gIBSMun",
+      "vDif",
+      "vDevTrib",
+      "vIBSMun",
+      "vIBS",
+      "vCredPres",
+      "vCredPresCondSus",
+      "gCBS",
+      "vDif",
+      "vDevTrib",
+      "vCBS",
+      "vCredPres",
+      "vCredPresCondSus",
+    ]);
+  });
+
   it("parses the optional item and total groups", () => {
     const doc = parseNfeProc(
       nfeProcXml({
