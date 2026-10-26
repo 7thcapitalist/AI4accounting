@@ -156,6 +156,8 @@ export interface FindingTemplate {
   reasoning: string;
   rule: string;
   source: string;
+  /** What the accountant should do, pt-BR, plain words. `{n}` = document number. */
+  action: string;
 }
 
 /** Findings the agents may raise. Legal references are real; scenarios are fictional. */
@@ -164,6 +166,8 @@ export const FINDING_TEMPLATES: FindingTemplate[] = [
     agent: "Conferencia",
     phase: "Conferencia",
     severity: "alta",
+    action:
+      "Confirme que a clínica atende como ambulatório (consultas, sem internação). Se sim, aprove: a nota está certa sem retenção. Se não, devolva para a Conferência pedir ao cliente a correção da nota.",
     regimes: ["ClinicaMedica"],
     message:
       "NFS-e {n} de serviço médico para operadora privada sem IRRF e sem CSRF retidos (serviço de ambulatório), enviada para revisão",
@@ -177,6 +181,8 @@ export const FINDING_TEMPLATES: FindingTemplate[] = [
     agent: "Conferencia",
     phase: "Conferencia",
     severity: "media",
+    action:
+      "Veja se o produto da nota {n} tem ICMS-ST. Se tiver, devolva para a Conferência: o cliente precisa corrigir o CFOP (5405) antes da apuração. Se não tiver, aprove.",
     regimes: ["SimplesAnexoI", "LucroPresumido"],
     message: "NF-e {n} com CFOP 5102 em operação com substituição tributária, enviada para revisão",
     reasoning:
@@ -188,6 +194,8 @@ export const FINDING_TEMPLATES: FindingTemplate[] = [
     agent: "Conferencia",
     phase: "Conferencia",
     severity: "baixa",
+    action:
+      "Confira se o serviço da nota {n} é o mesmo do cadastro. Se só o código está errado, aprove e peça ao cliente para ajustar nas próximas; se o serviço mudou, devolva para atualizar o cadastro.",
     regimes: ["SimplesAnexoIII", "SimplesAnexoV"],
     message: "NFS-e {n} com código de serviço divergente do cadastro, enviada para revisão",
     reasoning:
@@ -199,6 +207,8 @@ export const FINDING_TEMPLATES: FindingTemplate[] = [
     agent: "Conciliacao",
     phase: "Conciliacao",
     severity: "media",
+    action:
+      "Pergunte ao cliente o que é esse crédito (empréstimo, transferência entre contas ou venda sem nota). Se for venda, devolva para a Coleta pedir a nota; se não for receita, aprove.",
     regimes: "all",
     message: "Crédito no extrato sem nota correspondente, enviado para revisão",
     reasoning:
@@ -210,6 +220,8 @@ export const FINDING_TEMPLATES: FindingTemplate[] = [
     agent: "Conciliacao",
     phase: "Conciliacao",
     severity: "baixa",
+    action:
+      "Se o cliente vende a prazo, aprove: a receita entra no mês da nota, mesmo sem o dinheiro. Se a nota foi cancelada, devolva para a Conciliação.",
     regimes: "all",
     message: "Nota {n} sem baixa no extrato (possível recebimento futuro), enviada para revisão",
     reasoning:
@@ -221,6 +233,8 @@ export const FINDING_TEMPLATES: FindingTemplate[] = [
     agent: "Apuracao",
     phase: "Apuracao",
     severity: "media",
+    action:
+      "Confira a projeção do faturamento do ano. Se passar de R$ 3,6 milhões, ICMS e ISS saem do DAS no mês seguinte: aprove e avise o cliente.",
     regimes: ["SimplesAnexoI", "SimplesAnexoIII", "SimplesAnexoV"],
     message: "RBT12 próxima do sublimite, alíquota efetiva exige conferência",
     reasoning:
@@ -232,6 +246,8 @@ export const FINDING_TEMPLATES: FindingTemplate[] = [
     agent: "Apuracao",
     phase: "Apuracao",
     severity: "alta",
+    action:
+      "Confira os informes de retenção dos tomadores. Se estiverem certos, aprove: a sobra vira crédito para compensar. Se houver retenção em dobro, devolva para a Apuração.",
     regimes: ["LucroPresumido", "ClinicaMedica"],
     message: "Retenções na fonte somam valor maior que o IRPJ apurado, enviado para revisão",
     reasoning:

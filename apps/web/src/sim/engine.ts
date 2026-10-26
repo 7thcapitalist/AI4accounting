@@ -169,6 +169,7 @@ function completePhase(s: SimState, p: ClientProgress, rng: Rng): void {
           reasoning: t.reasoning,
           rule: t.rule,
           source: t.source,
+          action: t.action.replace("{n}", n),
           status: "open",
         };
         break;
