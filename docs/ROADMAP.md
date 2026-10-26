@@ -24,10 +24,11 @@ Long term the firm's ERP becomes optional. In v1 we sit beside it (Dominio, Alte
 
 ## Scope of v1
 
-**The monthly fiscal close of a Simples Nacional company, run by agents, approved by a human.**
+**The monthly fiscal close of a Simples Nacional company, with Lucro Presumido as the second regime, run by agents and
+approved by a human (ADR 0009).**
 
-Simples Nacional is most of a small firm's portfolio and has one main monthly filing (PGDAS-D) with exact rules.
-Payroll (DP), full bookkeeping and Lucro Presumido/Real are out of v1.
+Target segment is Simples Nacional and up; real data comes from a partner firm. Simples Nacional has one main monthly
+filing (PGDAS-D) with exact rules. MEI, payroll (DP), full bookkeeping and Lucro Real are out of v1.
 
 ## The agents
 
@@ -38,7 +39,8 @@ Payroll (DP), full bookkeeping and Lucro Presumido/Real are out of v1.
 | 2 | Collection | Finds what is missing and drafts the message to the client (never sends in v1) | Yes: conversation |
 | 3 | Check (conferencia) | Validates every document: CFOP, CST/CSOSN, NCM, ISS withholding, documents not belonging to the client, cancelled, duplicates | Rules first; LLM explains odd cases |
 | 4 | Reconciliation | Documents x ERP ledger x bank statement; lists what does not match | Rules first; LLM ranks likely matches |
-| 5 | Tax (apuracao) | Computes Simples Nacional (RBT12, annex, effective rate, fator R) and drafts the PGDAS-D | **Never.** Exact code with cited sources |
+| 5 | Tax (apuracao) | Computes Simples Nacional (RBT12, annex, effective rate, fator R) and Lucro Presumido, and drafts the PGDAS-D | **Never.** Exact code with cited sources |
+| 5b | Regime | Tracks Simples ceiling/sublimit and fator R, compares Simples x Presumido, warns early, drafts regime changes (ADR 0009) | **Never.** Exact code with cited sources |
 | 6 | Delivery | After approval: PGDAS-D/DAS through Integra Contador, sends the slip to the client | No |
 | - | Accountant | Reviews the exception queue and approves | Human |
 
@@ -76,6 +78,8 @@ A task may stack sub-branches on its own branch when it is split.
 - **0.1** ADRs: 0006 "agent-run monthly fiscal close for Simples Nacional" (supersedes 0003), 0007 "external services
   (Integra Contador, CaptureProvider, ADN)", 0008 "agent runtime and LlmProvider". Update `docs/CONTEXT.md`.
   Mark ADR 0004 (certificate custody) deferred.
+- **0.2** ADR 0009 "Target segment is Simples Nacional and up" (amends 0006: Simples + Presumido, MEI out; adds the
+  Regime agent). Issue #40.
 
 ### Phase 1: fiscal core (`packages/fiscal-core`)
 - **1.1** Domain types, centavos helpers, chave de acesso and CNPJ validation (issue #3).
@@ -83,12 +87,15 @@ A task may stack sub-branches on its own branch when it is split.
 - **1.3** Parse NFS-e Padrao Nacional into `FiscalDocument`.
 - **1.4** Simples Nacional engine: Annexes I-V tables, RBT12, effective rate, fator R, ISS/ICMS share. Every number
   cites LC 123/2006 as amended by LC 155/2016 and the Resolucao CGSN 140/2018; golden tests.
+- **1.5** Lucro Presumido engine and regime rules: Simples ceiling/sublimit, Simples x Presumido comparison.
+  Official source cited per rule, golden tests (ADR 0009).
 
 ### Phase 2: the fake company (`packages/simulator`)
 - **2.1** Deterministic generator (seeded) of companies and a month of operations: NF-e in/out, NFS-e issued/taken,
   OFX bank statement, ERP ledger CSV. XML valid against the official schemas. Profiles: commerce (Annex I),
   services (Annex III), services with fator R (Annex V/III), and a web-design studio like Frontstep. Synthetic
   CNPJs with valid check digits, never real ones.
+- **2.1b** Presumido profile and a Simples company that nears its ceiling, for the regime-comparison eval.
 - **2.2** Error injector + answer key + `pnpm eval`: missing invoice, wrong CFOP/CSOSN, ISS not withheld, invoice
   of another company, duplicate, cancelled invoice, bank entry without document, wrong revenue in PGDAS. Scores each
   agent (precision/recall per error type, tax amount exact to the centavo).
@@ -104,6 +111,7 @@ A task may stack sub-branches on its own branch when it is split.
 - **3.5** Tax agent: PGDAS-D draft traceable to each document.
 - **3.6** Collection agent: drafts messages; the simulator plays the client and answers.
 - **3.7** Delivery agent against the Integra Contador client (demonstration environment only).
+- **3.8** Regime agent: ceiling/sublimit, fator R, Simples x Presumido, early warning, change draft (ADR 0009).
 
 ### Phase 4: AI-native front end (`apps/web`, user copy in pt-BR)
 - **4.1** Month board: clients x phases grid, each cell shows the agent working, progress and exception count;
