@@ -1,34 +1,41 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { NfseParseError, parseNfse } from "./index";
 
-// Synthetic fixtures only: invented names and the published example CNPJs.
+// Synthetic fixtures only (invented names, published example CNPJs). The two XML files in
+// ./fixtures were validated against the official XSDs of the same version (see PR description).
 const PREST = "11222333000181";
 const TOMA = "11444777000161";
-const ID = `NFS${"3550308"}2${PREST}${"0".repeat(28)}`;
+const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
+const BASE = {
+  "1.00": readFileSync(join(FIXTURES, "nfse-v1.00.xml"), "utf8"),
+  "1.01": readFileSync(join(FIXTURES, "nfse-v1.01.xml"), "utf8"),
+};
 
-function nfse(opts: { tp?: string; trib?: string; toma?: string; extraDps?: string } = {}): string {
-  const {
-    tp = "1",
-    trib = "1",
-    toma = `<CNPJ>${TOMA}</CNPJ><xNome>Cliente Ficticio SA</xNome>`,
-  } = opts;
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00">
- <infNFSe Id="${ID}">
-  <xLocEmi>Sao Paulo</xLocEmi><nNFSe>123</nNFSe><cLocIncid>3550308</cLocIncid>
-  <valores><vBC>1000.00</vBC><pAliqAplic>2.00</pAliqAplic><vISSQN>20.00</vISSQN><vTotalRet>${tp === "1" ? "0.00" : "20.00"}</vTotalRet><vLiq>${tp === "1" ? "1000.00" : "980.00"}</vLiq></valores>
-  <emit><CNPJ>${PREST}</CNPJ><xNome>Estudio Ficticio LTDA</xNome></emit>
-  <DPS versao="1.00"><infDPS Id="DPS1">
-   <tpAmb>2</tpAmb><dhEmi>2026-09-30T23:50:00-03:00</dhEmi><serie>1</serie><nDPS>123</nDPS>
-   <dCompet>2026-09-30</dCompet><cLocEmi>3550308</cLocEmi>
-   <prest><CNPJ>${PREST}</CNPJ><xNome>Estudio Ficticio LTDA</xNome><regTrib><opSimpNac>3</opSimpNac></regTrib></prest>
-   ${toma ? `<toma>${toma}</toma>` : ""}
-   <serv><locPrest><cLocPrestacao>3550308</cLocPrestacao></locPrest><cServ><cTribNac>010701</cTribNac><xDescServ>Desenvolvimento de site</xDescServ></cServ></serv>
-   <valores><vServPrest><vServ>1000.00</vServ></vServPrest><trib><tribMun><tribISSQN>${trib}</tribISSQN><tpRetISSQN>${tp}</tpRetISSQN></tribMun></trib></valores>
-   ${opts.extraDps ?? ""}
-  </infDPS></DPS>
- </infNFSe>
-</NFSe>`;
+function nfse(
+  opts: {
+    versao?: "1.00" | "1.01";
+    tp?: string;
+    trib?: string;
+    toma?: string;
+    noPrestNome?: boolean;
+  } = {},
+): string {
+  const { versao = "1.00", tp = "1", trib = "1" } = opts;
+  let x = BASE[versao]
+    .replace("<tpRetISSQN>1</tpRetISSQN>", `<tpRetISSQN>${tp}</tpRetISSQN>`)
+    .replace("<tribISSQN>1</tribISSQN>", `<tribISSQN>${trib}</tribISSQN>`);
+  if (tp !== "1") {
+    x = x
+      .replace("<vTotalRet>0.00</vTotalRet>", "<vTotalRet>20.00</vTotalRet>")
+      .replace("<vLiq>1000.00</vLiq>", "<vLiq>980.00</vLiq>");
+  }
+  if (opts.toma !== undefined) {
+    x = x.replace(/<toma>.*<\/toma>/, opts.toma ? `<toma>${opts.toma}</toma>` : "");
+  }
+  return x;
 }
 
 const code = (fn: () => unknown) => {
@@ -55,14 +62,20 @@ describe("parseNfse", () => {
       numero: "123",
       servico: { cTribNac: "010701", cLocPrestacao: "3550308", cLocIncid: "3550308" },
       valores: { vServ: 100000, vBC: 100000, pAliqAplic: "2.00", vISSQN: 2000, vLiq: 100000 },
-      iss: { tribISSQN: "1", tpRetISSQN: "1", retido: false },
+      iss: { tribISSQN: "1", tributacao: "tributavel", tpRetISSQN: "1", retido: false },
+      versao: "1.00",
     });
   });
 
   it("parses a taken NFS-e with ISS withheld by the tomador", () => {
     const d = parseNfse(nfse({ tp: "2" }), { clientCnpj: "11.444.777/0001-61" });
     expect(d.role).toBe("entrada");
-    expect(d.iss).toEqual({ tribISSQN: "1", tpRetISSQN: "2", retido: true });
+    expect(d.iss).toEqual({
+      tribISSQN: "1",
+      tributacao: "tributavel",
+      tpRetISSQN: "2",
+      retido: true,
+    });
     expect(d.valores).toMatchObject({ vTotalRet: 2000, vLiq: 98000 });
   });
 
@@ -89,6 +102,18 @@ describe("parseNfse", () => {
     expect(code(() => parseNfse("", opt))).toBe("invalid_xml");
     expect(code(() => parseNfse("<nfeProc/>", opt))).toBe("unsupported_layout");
     expect(code(() => parseNfse(nfse({ tp: "9" }), opt))).toBe("invalid_field");
+    expect(code(() => parseNfse(nfse({ trib: "5" }), opt))).toBe("invalid_field");
+    expect(code(() => parseNfse(nfse({ trib: "0" }), opt))).toBe("invalid_field");
+    expect(code(() => parseNfse(nfse({ trib: "abc" }), opt))).toBe("invalid_field");
+    expect(code(() => parseNfse(nfse().replace('versao="1.00"', 'versao="2.00"'), opt))).toBe(
+      "unsupported_layout",
+    );
+    expect(code(() => parseNfse(nfse().replace(/ versao="1.00"/, ""), opt))).toBe(
+      "unsupported_layout",
+    );
+    expect(
+      code(() => parseNfse(nfse().replace('<DPS versao="1.00">', '<DPS versao="1.01">'), opt)),
+    ).toBe("invalid_field");
     expect(
       code(() =>
         parseNfse(
@@ -104,5 +129,41 @@ describe("parseNfse", () => {
       "invalid_field",
     );
     expect(code(() => parseNfse(nfse().replace("010701", "0107"), opt))).toBe("invalid_field");
+  });
+
+  it("resolves tribISSQN by layout version", () => {
+    const opt = { clientCnpj: PREST };
+    const meaning = (versao: "1.00" | "1.01", trib: string) =>
+      parseNfse(nfse({ versao, trib }), opt).iss.tributacao;
+    expect(["1", "2", "3", "4"].map((t) => meaning("1.00", t))).toEqual([
+      "tributavel",
+      "exportacao",
+      "nao_incidencia",
+      "imunidade",
+    ]);
+    expect(["1", "2", "3", "4"].map((t) => meaning("1.01", t))).toEqual([
+      "tributavel",
+      "imunidade",
+      "exportacao",
+      "nao_incidencia",
+    ]);
+    expect(parseNfse(nfse({ versao: "1.01" }), opt).versao).toBe("1.01");
+  });
+
+  it("does not require prest/xNome and falls back to infNFSe/emit/xNome", () => {
+    for (const versao of ["1.00", "1.01"] as const) {
+      const xml = nfse({ versao });
+      expect(xml).not.toMatch(/<prest>.*<xNome>/); // fixture omits it, as the XSD allows
+      expect(parseNfse(xml, { clientCnpj: PREST }).prestador.xNome).toBe("Estudio Ficticio LTDA");
+    }
+    // prest/xNome wins when present
+    const withNome = nfse().replace(
+      `<prest><CNPJ>${PREST}</CNPJ>`,
+      `<prest><CNPJ>${PREST}</CNPJ><xNome>Nome na DPS</xNome>`,
+    );
+    expect(parseNfse(withNome, { clientCnpj: PREST }).prestador.xNome).toBe("Nome na DPS");
+    // emit of a different CNPJ is not used
+    const other = nfse().replace(`<emit><CNPJ>${PREST}`, `<emit><CNPJ>${TOMA}`);
+    expect(parseNfse(other, { clientCnpj: PREST }).prestador.xNome).toBeUndefined();
   });
 });

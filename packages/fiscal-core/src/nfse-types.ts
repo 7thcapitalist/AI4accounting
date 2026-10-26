@@ -15,14 +15,25 @@ export interface NfseParty {
   /** 14 characters, no punctuation. Exactly one of cnpj / cpf is set (tomador may have neither). */
   cnpj?: string;
   cpf?: string;
-  xNome: string;
+  /** Required for the tomador. Optional for the prestador (infDPS/prest/xNome is optional in the XSDs). */
+  xNome?: string;
 }
+
+/** Layout versions (`versao` of NFSe/DPS) accepted by `parseNfse`; the official XSDs 1.00 and 1.01. */
+export type NfseVersao = "1.00" | "1.01";
+
+/** tribISSQN code as defined by the XSD: 1 to 4. Its meaning depends on `NfseVersao`. */
+export type NfseTribIssqn = "1" | "2" | "3" | "4";
+
+export type NfseTributacaoIss = "tributavel" | "imunidade" | "exportacao" | "nao_incidencia";
 
 /** tpRetISSQN: 1 = not withheld, 2 = withheld by the tomador, 3 = withheld by the intermediary. */
 export type NfseRetencaoIss = "1" | "2" | "3";
 
 export interface NfseDocument extends FiscalDocument {
   kind: "nfse";
+  /** `versao` of the NFSe root, validated against the supported layouts. */
+  versao: NfseVersao;
   /** Id of infNFSe without the "NFS" prefix (50 digits), when present. */
   chave?: string;
   /** nNFSe: number assigned by the Sistema Nacional. */
@@ -53,8 +64,10 @@ export interface NfseDocument extends FiscalDocument {
     vLiq?: Centavos;
   };
   iss: {
-    /** tribISSQN: 1 taxable, 2 immunity, 3 export, 4 not taxed. */
-    tribISSQN: string;
+    /** tribISSQN as in the XML. 1.00: 1 taxable, 2 export, 3 not incident, 4 immunity. 1.01: 1 taxable, 2 immunity, 3 export, 4 not incident. */
+    tribISSQN: NfseTribIssqn;
+    /** tribISSQN meaning resolved for the document's `versao`. */
+    tributacao: NfseTributacaoIss;
     tpRetISSQN: NfseRetencaoIss;
     /** True when tpRetISSQN is 2 or 3. */
     retido: boolean;
