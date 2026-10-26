@@ -416,9 +416,7 @@ table.board {
 
 .board th {
   text-align: left;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 12px;
   color: var(--ink-3);
   font-weight: 600;
   padding: 10px 4px;
