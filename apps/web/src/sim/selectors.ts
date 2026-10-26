@@ -27,13 +27,14 @@ export function selectDeadlines(s: SimState): ObligationDeadline[] {
 
 export function selectKpis(s: SimState): Kpis {
   const deadlines = selectDeadlines(s);
+  const open = deadlines.filter((d) => d.closed < d.clients);
   const minutes = s.progress.reduce((sum, p) => sum + p.savedMinutes, 0);
   return {
     totalClients: s.clients.length,
     closedClients: s.progress.filter((p) => p.status === "done").length,
     openExceptions: s.findings.filter((f) => f.status === "open").length,
     hoursSaved: Math.round((minutes / 60) * 10) / 10,
-    daysToDeadline: Math.min(...deadlines.map((d) => d.daysLeft)),
+    daysToDeadline: Math.min(...(open.length ? open : deadlines).map((d) => d.daysLeft)),
     deadlineLabel: deadlines.map((d) => d.label).join(" · "),
     deadlines,
   };
