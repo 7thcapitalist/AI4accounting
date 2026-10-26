@@ -107,7 +107,7 @@ export function Board({
             <table className="board">
               <thead>
                 <tr>
-                  <th style={{ paddingLeft: 16, width: "24%" }}>Cliente</th>
+                  <th style={{ paddingLeft: 16, width: "20%" }}>Cliente</th>
                   {PHASES.map((ph) => (
                     <th key={ph}>
                       <span

@@ -410,7 +410,7 @@ a:focus-visible {
 table.board {
   width: 100%;
   border-collapse: collapse;
-  min-width: 720px;
+  min-width: 840px;
   table-layout: fixed;
 }
 
@@ -422,8 +422,6 @@ table.board {
   padding: 10px 4px;
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .board th .dot {
@@ -964,7 +962,7 @@ table.board {
 
 @media (max-width: 1180px) {
   .work {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .feed {
     position: static;
@@ -974,7 +972,7 @@ table.board {
 
 @media (max-width: 820px) {
   .shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .side {
     position: static;
