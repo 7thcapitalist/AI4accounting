@@ -1,0 +1,6 @@
+{
+  "status": 200,
+  "responseId": "synthetic-dctfweb",
+  "mensagens": [{ "codigo": "[Sucesso-DCTFWEB]", "texto": "Recibo consultado." }],
+  "dados": "{\"numeroRecibo\":\"SYNTHETIC-RECIBO\",\"categoria\":\"GERAL_MENSAL\",\"anoPA\":\"2025\",\"mesPA\":\"01\"}"
+}

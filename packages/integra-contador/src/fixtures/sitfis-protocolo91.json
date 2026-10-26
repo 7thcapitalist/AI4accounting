@@ -1,0 +1,6 @@
+{
+  "status": 200,
+  "responseId": "synthetic-3",
+  "mensagens": [{ "codigo": "[Sucesso-SITFIS]", "texto": "Protocolo gerado." }],
+  "dados": "{\"protocoloRelatorio\":\"SYNTHETIC-PROTOCOL\",\"tempoEspera\":2000}"
+}
