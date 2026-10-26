@@ -17,9 +17,12 @@ import type { Centavos } from "./types";
 /**
  * Sources: Manual de Orientacao do Contribuinte NF-e (MOC) 7.0, layout 4.00, "nfeProc",
  * "infNFe", "det/imposto/ICMS", "total/ICMSTot", "protNFe" and "procEventoNFe" (evento de
- * cancelamento 110111). IBS/CBS groups follow NT 2025.002 (Reforma Tributaria, grupos UB e
- * W03). The IBS/CBS field names were NOT checked against the official PDF (only third-party
- * summaries were reachable) and must be verified before relying on them.
+ * cancelamento 110111). IBS/CBS groups (item `imposto/IBSCBS/gIBSCBS`, total `IBSCBSTot`) were
+ * checked on 2026-10-26 against the official XSDs of Pacote de Liberacao 010g v1.03 (NT 2025.002
+ * v1.50 + NT 2026.006/2026.008), types TTribNFe, TCIBS_NFe and TIBSCBSMonoTot in
+ * DFeTiposBasicos_v1.00.xsd, published at
+ * https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?tipoConteudo=BMPFMBoln3w=
+ * (item: gIBSCBS/vBC, gIBSCBS/vIBS, gIBSCBS/gCBS/vCBS; total: vBCIBSCBS, gIBS/vIBS, gCBS/vCBS).
  */
 
 type Obj = Record<string, unknown>;
