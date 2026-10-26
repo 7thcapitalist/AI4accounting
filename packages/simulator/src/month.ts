@@ -109,7 +109,7 @@ const SUFIXO: Record<string, string> = {
 
 export function buildCompany(seed: number, index: number, profile: Profile): Company {
   const rng = new Rng(seed * 1009 + index * 7919);
-  const [min, max] = profile.revenue;
+  const [min, max] = profile.historyRevenue ?? profile.revenue;
   const history = Array.from({ length: 12 }, () => rng.int(min, max));
   return {
     id: `c${String(index + 1).padStart(2, "0")}`,

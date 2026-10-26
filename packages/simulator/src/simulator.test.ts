@@ -1,4 +1,4 @@
-import { isValidCnpj, parseNfeProc, parseNfse } from "@ai4a/fiscal-core";
+import { isValidCnpj, parseNfeProc, parseNfse, SIMPLES_SUBLIMIT } from "@ai4a/fiscal-core";
 import { describe, expect, it } from "vitest";
 import { generatePortfolio, PROFILES, toLedgerCsv, toOfx } from "./index";
 
@@ -105,5 +105,20 @@ describe("expected taxes", () => {
       .filter(({ company }) => company.profile === PROFILES.servicos_presumido)
       .some(({ m }) => m.expected.retencoes.irrf > 0);
     expect(withheld).toBe(true);
+  });
+
+  it("clinics withhold on invoices to companies/health plans, never to individuals", () => {
+    const clinics = all.filter(({ company }) => company.profile.key === "clinica_presumido");
+    const withheld = clinics.flatMap(({ m }) => m.documents).filter((d) => d.retencoes);
+    expect(withheld.length).toBeGreaterThan(0);
+    for (const d of withheld) expect(d.counterpart).toHaveLength(14);
+    expect(clinics.some(({ m }) => m.expected.retencoes.irrf > 0)).toBe(true);
+  });
+
+  it("the Simples sublimite company crosses R$ 3,6 mi RBT12 during the simulated months", () => {
+    const c = portfolio.companies.find((x) => x.company.profile.key === "sublimite_simples");
+    const rbt12 = c?.months.map((m) => m.expected.rbt12 ?? 0) ?? [];
+    expect(rbt12[0]).toBeLessThanOrEqual(SIMPLES_SUBLIMIT);
+    expect(rbt12.at(-1)).toBeGreaterThan(SIMPLES_SUBLIMIT);
   });
 });

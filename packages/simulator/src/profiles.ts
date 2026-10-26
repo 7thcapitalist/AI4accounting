@@ -23,6 +23,8 @@ export interface Profile {
   sells: "nfe" | "nfse";
   /** Monthly gross revenue range, centavos. */
   revenue: [Centavos, Centavos];
+  /** Monthly revenue range of the 12 months before the simulation, when it differs from `revenue`. */
+  historyRevenue?: [Centavos, Centavos];
   /** ISS rate in bp for service companies (Goiania, synthetic). */
   issRateBp?: number;
   /** Share of service invoices billed to companies that withhold IRRF/CSRF (Presumido services). */
@@ -67,11 +69,14 @@ export const PROFILES: Record<ProfileKey, Profile> = {
   },
   sublimite_simples: {
     key: "sublimite_simples",
-    label: "Comércio · Simples perto do sublimite",
+    label: "Comércio · Simples cruzando o sublimite",
     regime: "simples",
     annex: "I",
     sells: "nfe",
-    revenue: [330 * MIL, 420 * MIL],
+    // History sums to R$ 3,42..3,54 mi (below the R$ 3,6 mi sublimite); each simulated month then
+    // brings in >= R$ 400 mil, so RBT12 is below the limit in the first month and above it by September.
+    historyRevenue: [285 * MIL, 295 * MIL],
+    revenue: [400 * MIL, 440 * MIL],
   },
   servicos_presumido: {
     key: "servicos_presumido",
@@ -101,7 +106,7 @@ export const PROFILES: Record<ProfileKey, Profile> = {
     sells: "nfse",
     revenue: [70 * MIL, 220 * MIL],
     issRateBp: 300,
-    withheldShare: 0,
+    withheldShare: 0.8, // PJ and health-plan patients withhold; individuals (70% of visits) do not
     cTribNac: "040301",
     service: "Consultas médicas ambulatoriais",
   },
