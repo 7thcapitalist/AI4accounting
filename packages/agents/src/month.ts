@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { clients, competencias, firms, PHASES, type Phase, type Store } from "@ai4a/db";
 import { generatePortfolio } from "@ai4a/simulator";
 import { CaptureAgent, type CaptureProvider, SimulatorProvider } from "./capture";
+import { type ClientResponder, CollectionAgent, SimulatedClient } from "./collection";
 import { Coordinator, type MonthOutcome } from "./coordinator";
 import { prng } from "./prng";
 import { simApprover, stubAgents } from "./stubs";
@@ -20,6 +21,8 @@ export interface SimMonthOptions {
   dataDir?: string;
   /** Capture source; defaults to the SimulatorProvider for the seed. */
   provider?: CaptureProvider;
+  /** Plays the client when documents are missing; defaults to a client holding the complete month. */
+  responder?: ClientResponder;
   /** Pause (ms) before each agent works, so a board watching the store sees the month progress. */
   delayMs?: number;
 }
@@ -40,6 +43,11 @@ export async function runSimMonth(
   agents.captura = new CaptureAgent({
     store,
     provider: opts.provider ?? new SimulatorProvider(seed),
+    dataDir,
+  });
+  agents.coleta = new CollectionAgent({
+    store,
+    responder: opts.responder ?? new SimulatedClient(new SimulatorProvider(seed)),
     dataDir,
   });
   await store.db.insert(firms).values({ id: "firm-sim", name: "Escritorio Simulado" });
