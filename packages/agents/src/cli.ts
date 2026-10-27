@@ -1,25 +1,33 @@
 import { openStore } from "@ai4a/db";
+import { FolderProvider } from "./capture";
 import { runSimMonth } from "./month";
 
 const args = process.argv.slice(2);
-const i = args.indexOf("--sim");
-const seed = Number(args[i + 1]);
-if (i < 0 || !Number.isInteger(seed)) {
-  console.error("usage: pnpm month:run --sim <seed> [--db <file>] [--delay <ms>] [--clients <n>]");
+const opt = (name: string) => {
+  const k = args.indexOf(`--${name}`);
+  return k >= 0 ? args[k + 1] : undefined;
+};
+const num = (name: string): number | undefined => {
+  const v = Number(opt(name));
+  return opt(name) !== undefined && Number.isFinite(v) ? v : undefined;
+};
+const seed = Number(opt("sim"));
+if (!Number.isInteger(seed)) {
+  console.error(
+    "usage: pnpm month:run --sim <seed> [--db <file>] [--folder <dir>] [--data <dir>] [--delay <ms>] [--clients <n>]",
+  );
   process.exit(2);
 }
-const j = args.indexOf("--db");
-const store = await openStore(j >= 0 ? (args[j + 1] ?? ":memory:") : ":memory:");
-const flag = (name: string): number | undefined => {
-  const k = args.indexOf(name);
-  const v = k >= 0 ? Number(args[k + 1]) : Number.NaN;
-  return Number.isFinite(v) ? v : undefined;
-};
+const folder = opt("folder");
+const store = await openStore(opt("db") ?? ":memory:");
 const { outcomes } = await runSimMonth(store, seed, {
-  delayMs: flag("--delay"),
-  nClients: flag("--clients"),
+  dataDir: opt("data"),
+  provider: folder ? new FolderProvider(folder) : undefined,
+  delayMs: num("delay"),
+  nClients: num("clients"),
 });
 const events = await store.listEvents();
-console.log(`seed ${seed}: ${events.length} events`);
+const captured = events.filter((e) => e.kind === "document.captured").length;
+console.log(`seed ${seed}: ${events.length} events, ${captured} documents captured`);
 for (const [cid, o] of Object.entries(outcomes)) console.log(`${cid}: ${o.status}`);
 store.close();
