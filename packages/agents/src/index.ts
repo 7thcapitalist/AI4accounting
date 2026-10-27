@@ -1,4 +1,5 @@
 export * from "./capture";
+export * from "./check";
 export type { CoordinatorDeps, MonthOutcome } from "./coordinator";
 export { Coordinator, canTransition } from "./coordinator";
 export { runSimMonth, type SimMonthOptions } from "./month";

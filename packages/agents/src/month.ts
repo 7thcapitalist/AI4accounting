@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { clients, competencias, firms, PHASES, type Phase, type Store } from "@ai4a/db";
 import { generatePortfolio } from "@ai4a/simulator";
 import { CaptureAgent, type CaptureProvider, SimulatorProvider } from "./capture";
+import { CheckAgent, type LlmProvider } from "./check";
 import { Coordinator, type MonthOutcome } from "./coordinator";
 import { prng } from "./prng";
 import { simApprover, stubAgents } from "./stubs";
@@ -20,6 +21,8 @@ export interface SimMonthOptions {
   dataDir?: string;
   /** Capture source; defaults to the SimulatorProvider for the seed. */
   provider?: CaptureProvider;
+  /** Explains Check findings in pt-BR; omit to skip explanations. */
+  llm?: LlmProvider;
   /** Pause (ms) before each agent works, so a board watching the store sees the month progress. */
   delayMs?: number;
 }
@@ -42,6 +45,7 @@ export async function runSimMonth(
     provider: opts.provider ?? new SimulatorProvider(seed),
     dataDir,
   });
+  agents.conferencia = new CheckAgent({ store, llm: opts.llm });
   await store.db.insert(firms).values({ id: "firm-sim", name: "Escritorio Simulado" });
   let tick = 0;
   const outcomes: Record<string, MonthOutcome> = {};
