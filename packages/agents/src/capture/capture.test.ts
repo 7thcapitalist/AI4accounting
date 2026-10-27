@@ -106,6 +106,38 @@ describe("FolderProvider", () => {
     expect(out.files.map((f) => f.kind)).toContain("ofx");
   });
 
+  it("keeps ISO-8859-1 bytes untouched and hashes the original bytes", async () => {
+    const root = tmp();
+    const dir = writeMonth(root);
+    const d = sim.documents[0];
+    if (!d) throw new Error("no documents");
+    const body = d.xml.replace(/^<\?xml[^>]*\?>\s*/, "");
+    const xml = Buffer.concat([
+      Buffer.from('<?xml version="1.0" encoding="ISO-8859-1"?>\n', "latin1"),
+      Buffer.from(`${body}\n<!-- emissão ação -->`, "latin1"),
+    ]);
+    const ofx = Buffer.from("OFX\nMEMO Pagamento ação\n", "latin1");
+    const csv = Buffer.from("data;histórico\n", "latin1");
+    writeFileSync(join(dir, d.file), xml);
+    writeFileSync(join(dir, "extrato.ofx"), ofx);
+    writeFileSync(join(dir, "razao.csv"), csv);
+
+    const out = await new FolderProvider(root).capture({ cnpj: company.cnpj, month: MONTH });
+    expect(out.rejected).toEqual([]);
+    const byName = new Map(out.files.map((f) => [f.name, Buffer.from(f.content)]));
+    expect(byName.get(d.file)?.equals(xml)).toBe(true);
+    expect(byName.get("extrato.ofx")?.equals(ofx)).toBe(true);
+    expect(byName.get("razao.csv")?.equals(csv)).toBe(true);
+
+    const st = await setup(company.cnpj);
+    const dataDir = tmp();
+    await new CaptureAgent({ store: st, provider: new FolderProvider(root), dataDir }).run(task);
+    const sha = createHash("sha256").update(xml).digest("hex");
+    expect(readFileSync(join(dataDir, `${sha}.xml`)).equals(xml)).toBe(true);
+    const shaCsv = createHash("sha256").update(csv).digest("hex");
+    expect(readFileSync(join(dataDir, `${shaCsv}.csv`)).equals(csv)).toBe(true);
+  });
+
   it("rejects bad XML and other-month notes instead of failing the run", async () => {
     const root = tmp();
     const dir = writeMonth(root);

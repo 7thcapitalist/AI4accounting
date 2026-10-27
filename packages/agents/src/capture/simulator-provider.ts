@@ -24,12 +24,20 @@ export class SimulatorProvider implements CaptureProvider {
     const files: CapturedFile[] = sim.documents.map((d) => ({
       kind: d.kind,
       name: d.file,
-      content: d.xml,
+      content: Buffer.from(d.xml, "utf8"),
       key: d.ref,
       amountCentavos: d.valor,
     }));
-    files.push({ kind: "ofx", name: "extrato.ofx", content: toOfx(entry.company, sim) });
-    files.push({ kind: "ledger", name: "razao.csv", content: toLedgerCsv(sim) });
+    files.push({
+      kind: "ofx",
+      name: "extrato.ofx",
+      content: Buffer.from(toOfx(entry.company, sim), "utf8"),
+    });
+    files.push({
+      kind: "ledger",
+      name: "razao.csv",
+      content: Buffer.from(toLedgerCsv(sim), "utf8"),
+    });
     return { files, rejected: [] };
   }
 }

@@ -12,7 +12,7 @@ export interface CapturedFile {
   /** Original file name, kept for the audit trail. */
   name: string;
   /** Raw file content, stored byte for byte. */
-  content: string;
+  content: Uint8Array;
   /** Chave de acesso (NF-e) or NFS-e number/chave, when the kind has one. */
   key?: string;
   amountCentavos?: number;
