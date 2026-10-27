@@ -1,6 +1,17 @@
 import { isValidCnpj, parseNfeProc, parseNfse, SIMPLES_SUBLIMIT } from "@ai4a/fiscal-core";
 import { describe, expect, it } from "vitest";
-import { generatePortfolio, PROFILES, toLedgerCsv, toOfx } from "./index";
+import {
+  ERROR_TYPES,
+  evaluate,
+  expectedMonthlyTax,
+  generatePortfolio,
+  injectErrors,
+  type Pipeline,
+  PROFILES,
+  stubPipeline,
+  toLedgerCsv,
+  toOfx,
+} from "./index";
 
 const portfolio = generatePortfolio(7);
 const all = portfolio.companies.flatMap(({ company, months }) =>
@@ -120,5 +131,69 @@ describe("expected taxes", () => {
     const rbt12 = c?.months.map((m) => m.expected.rbt12 ?? 0) ?? [];
     expect(rbt12[0]).toBeLessThanOrEqual(SIMPLES_SUBLIMIT);
     expect(rbt12.at(-1)).toBeGreaterThan(SIMPLES_SUBLIMIT);
+  });
+});
+
+describe("injectErrors and evaluate", () => {
+  const injected = injectErrors(generatePortfolio(7), { rate: 0.5 });
+
+  it("is deterministic by seed and does not touch the clean portfolio", () => {
+    const clean = JSON.stringify(generatePortfolio(7));
+    expect(JSON.stringify(injectErrors(generatePortfolio(7), { rate: 0.5 }))).toBe(
+      JSON.stringify(injected),
+    );
+    expect(JSON.stringify(generatePortfolio(7))).toBe(clean);
+  });
+
+  it("plants every error type and the key points at real artifacts", () => {
+    expect(new Set(injected.answerKey.map((a) => a.type))).toEqual(new Set(ERROR_TYPES));
+    for (const a of injected.answerKey) {
+      const m = injected.companies
+        .find((c) => c.company.id === a.companyId)
+        ?.months.find((x) => x.competencia === a.competencia);
+      expect(m).toBeDefined();
+      if (a.type === "bank_without_document")
+        expect(m?.bank.some((b) => b.fitid === a.ref)).toBe(true);
+      else if (a.type === "wrong_revenue") expect(m?.declaredRevenue).not.toBe(m?.expected.revenue);
+      else if (a.type === "missing_invoice")
+        expect(m?.documents.some((d) => d.ref === a.ref)).toBe(false);
+      else expect(m?.documents.some((d) => d.ref === a.ref)).toBe(true);
+    }
+  });
+
+  it("scores the stub at zero recall and an oracle at 100%", async () => {
+    const stub = await evaluate(injected, stubPipeline);
+    expect(stub.planted).toBe(injected.answerKey.length);
+    for (const s of stub.byType) expect(s.recall === 0 || s.recall === null).toBe(true);
+    expect(stub.tax.exact).toBe(0);
+
+    const oracle: Pipeline = ({ company, month }) => {
+      const e = injected.companies
+        .find((c) => c.company.id === company.id)
+        ?.months.find((x) => x.competencia === month.competencia)?.expected;
+      return {
+        findings: injected.answerKey
+          .filter((a) => a.companyId === company.id && a.competencia === month.competencia)
+          .map(({ type, ref }) => ({ type, ref })),
+        tax: e && expectedMonthlyTax(e),
+      };
+    };
+    const perfect = await evaluate(injected, oracle);
+    for (const s of perfect.byType) {
+      expect(s.fp).toBe(0);
+      expect(s.fn).toBe(0);
+    }
+    expect(perfect.tax.rate).toBe(1);
+  });
+
+  it("counts wrong findings as false positives", async () => {
+    const first = injected.answerKey[0];
+    if (!first) throw new Error("empty answer key");
+    const r = await evaluate(injected, ({ company }) => ({
+      findings: company.id === first.companyId ? [{ type: "duplicate", ref: "nope" }] : [],
+    }));
+    const dup = r.byType.find((s) => s.type === "duplicate");
+    expect(dup?.fp).toBeGreaterThan(0);
+    expect(dup?.precision).toBe(0);
   });
 });
