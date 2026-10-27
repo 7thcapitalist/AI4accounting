@@ -7,9 +7,15 @@ const opt = (name: string) => {
   const k = args.indexOf(`--${name}`);
   return k >= 0 ? args[k + 1] : undefined;
 };
+const num = (name: string): number | undefined => {
+  const v = Number(opt(name));
+  return opt(name) !== undefined && Number.isFinite(v) ? v : undefined;
+};
 const seed = Number(opt("sim"));
 if (!Number.isInteger(seed)) {
-  console.error("usage: pnpm month:run --sim <seed> [--db <file>] [--folder <dir>] [--data <dir>]");
+  console.error(
+    "usage: pnpm month:run --sim <seed> [--db <file>] [--folder <dir>] [--data <dir>] [--delay <ms>] [--clients <n>]",
+  );
   process.exit(2);
 }
 const folder = opt("folder");
@@ -17,6 +23,8 @@ const store = await openStore(opt("db") ?? ":memory:");
 const { outcomes } = await runSimMonth(store, seed, {
   dataDir: opt("data"),
   provider: folder ? new FolderProvider(folder) : undefined,
+  delayMs: num("delay"),
+  nClients: num("clients"),
 });
 const events = await store.listEvents();
 const captured = events.filter((e) => e.kind === "document.captured").length;
