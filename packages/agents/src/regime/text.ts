@@ -20,14 +20,14 @@ const WHAT_NEXT: Record<RbtConsequence, string> = {
 /** pt-BR flag for the accountant. A flag, not a legal conclusion: the accountant confirms. */
 export function ceilingText(
   month: string,
-  rbt12: Centavos,
+  ytd: Centavos,
   p: CrossingProjection,
   cons: RbtConsequence,
 ): string {
   if (p.alreadyAbove) {
-    return `RBT12 de ${brl(rbt12)} em ${monthName(month)} ja esta acima do teto do Simples (${brl(SIMPLES_CEILING)}). Verificar com o contador a exclusao do regime.`;
+    return `Receita acumulada no ano-calendario de ${brl(ytd)} ate ${monthName(month)} ja esta acima do teto do Simples (${brl(SIMPLES_CEILING)}). Verificar com o contador a exclusao do regime.`;
   }
-  return `Mantido o ritmo dos ultimos meses, o RBT12 passa do teto do Simples (${brl(SIMPLES_CEILING)}) em ${monthName(p.month ?? month)}, chegando a ${brl(p.atEnd)} ao fim de 12 meses (${WHAT_NEXT[cons]}). Sinalizacao para o contador, nao conclusao juridica.`;
+  return `Mantido o ritmo dos ultimos meses, a receita acumulada no ano-calendario passa do teto do Simples (${brl(SIMPLES_CEILING)}) em ${monthName(p.month ?? month)}, chegando a ${brl(p.atEnd)} em dezembro (${WHAT_NEXT[cons]}). Sinalizacao para o contador, nao conclusao juridica.`;
 }
 
 export function sublimitText(

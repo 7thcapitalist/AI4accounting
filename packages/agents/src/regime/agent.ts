@@ -8,7 +8,6 @@ import {
   excessConsequence,
   fatorR,
   projectRba,
-  projectRbt12,
   runRate,
   SRC_CEILING,
   SRC_FATOR_R,
@@ -22,7 +21,7 @@ export interface RegimeAgentDeps {
 }
 
 /**
- * Regime agent (ROADMAP 3.8, ADR 0009): every month, for Simples clients, projects when RBT12 crosses
+ * Regime agent (ROADMAP 3.8, ADR 0009): every month, for Simples clients, projects when the calendar-year revenue (RBA) crosses
  * the Simples ceiling and the calendar-year revenue crosses the ICMS/ISS sublimit, tracks fator R and
  * the payroll that keeps Annex III, and compares annual Simples x Lucro Presumido. It only raises
  * flags with the numbers behind them: never a legal conclusion and nothing is filed. No LLM.
@@ -72,13 +71,14 @@ export class RegimeAgent implements Agent {
     });
 
     if (row.regime === "simples") {
-      const ceiling = projectRbt12(ctx.revenue, SIMPLES_CEILING);
+      // Exclusion by excess is judged on the calendar-year revenue (RBA), not on the rolling RBT12.
+      const ceiling = projectRba(ytd, row.month, rate, SIMPLES_CEILING);
       const cons = excessConsequence(ceiling.atEnd, SIMPLES_CEILING);
       events.push({ kind: "regime.ceiling", payload: { ...ceiling, consequence: cons } });
       if (ceiling.alreadyAbove || ceiling.month) {
         findings.push({
           severity: ceiling.alreadyAbove ? "blocker" : "warning",
-          message: ceilingText(row.month, rbt12, ceiling, cons),
+          message: ceilingText(row.month, ytd, ceiling, cons),
           source: SRC_CEILING,
         });
       }
@@ -116,6 +116,7 @@ export class RegimeAgent implements Agent {
         activity: ctx.activity,
         issRateBp: ctx.issRateBp,
         year: Number(row.month.slice(0, 4)),
+        sublimit,
       });
       events.push({ kind: "regime.comparison", payload: { basis: "RBT12", rbt12, ...cmp } });
       findings.push({

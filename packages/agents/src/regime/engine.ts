@@ -52,28 +52,8 @@ export function runRate(revenue: MonthAmount[]): Centavos {
 }
 
 /**
- * RBT12 after each projected month, assuming every future month equals the run-rate: the window
- * drops the month 12 back and adds the run-rate. `revenue` is the closed months, oldest first,
- * at least 12 (shorter histories use the mean x 12 rule of the engine, not this projection).
- */
-export function projectRbt12(revenue: MonthAmount[], limit: Centavos): CrossingProjection {
-  const window = revenue.slice(-12).map((m) => m.amount);
-  const rate = runRate(revenue);
-  let month = revenue.at(-1)?.competencia ?? "";
-  let acc = window.reduce((a, b) => a + b, 0);
-  if (acc > limit) return { alreadyAbove: true, atEnd: acc };
-  let crossing: string | undefined;
-  for (let i = 0; i < PROJECTION_MONTHS; i++) {
-    month = nextMonth(month);
-    acc = acc - (window.shift() ?? 0) + rate;
-    window.push(rate);
-    if (acc > limit && !crossing) crossing = month;
-  }
-  return { month: crossing, alreadyAbove: false, atEnd: acc };
-}
-
-/**
- * Calendar-year revenue (RBA) after each month until December at the run-rate.
+ * Calendar-year revenue (RBA/RBAA, the legal basis for the Simples exclusion by excess and for the
+ * ICMS/ISS sublimit) after each month until December at the run-rate.
  * `ytd` is the revenue from January through `lastClosed` (YYYY-MM).
  */
 export function projectRba(ytd: Centavos, lastClosed: string, rate: Centavos, limit: Centavos) {
@@ -129,6 +109,8 @@ export interface ComparisonInput {
   issRateBp: number;
   /** Any competencia of the year to compare (picks the Presumido rule version). */
   year: number;
+  /** ICMS/ISS sublimit in force; defaults to R$ 3,6 mi. */
+  sublimit?: Centavos;
 }
 
 export interface RegimeCost {
@@ -164,7 +146,7 @@ export function compareRegimes(i: ComparisonInput): Comparison {
     annex: i.annex,
     payroll12: i.payroll12,
     rbaa: i.annualRevenue,
-    ...(i.annualRevenue > SIMPLES_SUBLIMIT ? { icmsIssBarred: true } : {}),
+    ...(i.annualRevenue > (i.sublimit ?? SIMPLES_SUBLIMIT) ? { icmsIssBarred: true } : {}),
   });
   const simplesTotal = das.total * 12;
 

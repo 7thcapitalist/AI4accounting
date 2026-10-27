@@ -6,7 +6,7 @@ import {
   fatorR,
   type MonthAmount,
   projectRba,
-  projectRbt12,
+  runRate,
 } from "./engine";
 import { RegimeAgent, type RegimeContext, StaticRegimeContext } from "./index";
 
@@ -27,15 +27,19 @@ function months(last: string, amounts: number[]): MonthAmount[] {
 }
 
 describe("projection (hand-computed)", () => {
-  it("ceiling: 9 months of R$ 380 mil + 3 of R$ 440 mil crosses R$ 4,8 mi two months later", () => {
-    // RBT12 = 9x380 + 3x440 = 4.740 mil; run-rate 440; +60 per month dropped 380:
-    // 2027-01 = 4.800 (not above), 2027-02 = 4.860 (crosses); after 9 drops of 380: 4.740 + 540 = 5.280.
-    const rev = months("2026-12", [...Array(9).fill(380), 440, 440, 440]);
-    const p = projectRbt12(rev, 480_000_000);
+  it("ceiling: calendar-year revenue (RBA) crosses R$ 4,8 mi in December, not earlier", () => {
+    // 2026: Jan-Mar 380, Apr-Jun 440 -> ytd 2.460 mil; run-rate 440: Jul 2.900, Aug 3.340, Sep 3.780,
+    // Oct 4.220, Nov 4.660, Dec 5.100 (crosses). The rolling RBT12 would cross earlier: not the legal basis.
+    const rev = months("2026-06", [...Array(9).fill(380), 440, 440, 440]);
+    const ytd = rev
+      .filter((m) => m.competencia.startsWith("2026"))
+      .reduce((a, m) => a + m.amount, 0);
+    expect(ytd).toBe(2_460_000 * 100);
+    const p = projectRba(ytd, "2026-06", runRate(rev), 480_000_000);
     expect(p.alreadyAbove).toBe(false);
-    expect(p.month).toBe("2027-02");
-    expect(p.atEnd).toBe(5_280_000 * 100);
-    expect(excessConsequence(p.atEnd, 480_000_000)).toBe("next_year"); // 110% of the ceiling
+    expect(p.month).toBe("2026-12");
+    expect(p.atEnd).toBe(5_100_000 * 100);
+    expect(excessConsequence(p.atEnd, 480_000_000)).toBe("next_year"); // 106,25%
   });
 
   it("excess above 20% takes effect right away", () => {
@@ -52,8 +56,7 @@ describe("projection (hand-computed)", () => {
   });
 
   it("flat revenue under the limits raises nothing", () => {
-    const rev = months("2026-12", Array(12).fill(200));
-    expect(projectRbt12(rev, 480_000_000).month).toBeUndefined();
+    expect(projectRba(2_400_000 * 100, "2026-12", 200 * MIL, 480_000_000).month).toBeUndefined();
   });
 
   it("fator R: payroll of R$ 1.000 mil on RBT12 R$ 4.200 mil is 23,80% and needs R$ 1.176 mil", () => {
@@ -92,6 +95,23 @@ describe("Simples x Lucro Presumido (hand-computed)", () => {
     expect(c.simples.annex).toBe("III");
     expect(c.simples.total).toBe(15_636_000);
     expect(c.simplesAdvantage).toBe(-600_000);
+  });
+});
+
+describe("comparison honours the configured sublimit", () => {
+  it("R$ 2 mi of revenue: R$ 1,8 mi sublimit takes ICMS/ISS out of the DAS", () => {
+    const input = {
+      annualRevenue: 2_000_000 * 100,
+      payroll12: 800_000 * 100,
+      annex: "III",
+      activity: "servicos_geral",
+      issRateBp: 500,
+      year: 2026,
+    } as const;
+    const def = compareRegimes(input);
+    const low = compareRegimes({ ...input, sublimit: 1_800_000 * 100 });
+    expect(low.simples.total).toBeLessThan(def.simples.total);
+    expect(compareRegimes({ ...input, sublimit: 3_600_000 * 100 })).toEqual(def);
   });
 });
 
@@ -134,7 +154,7 @@ describe("RegimeAgent", () => {
     expect(r.events.some((e) => e.kind === "regime.comparison")).toBe(true);
   });
 
-  it("flags a projected ceiling crossing", async () => {
+  it("flags a projected ceiling crossing on the calendar-year revenue", async () => {
     const r = await runAgent({
       ...base,
       revenue: months("2026-06", [...Array(9).fill(380), 440, 440, 440]),
@@ -142,17 +162,48 @@ describe("RegimeAgent", () => {
     });
     const f = r.findings.find((x) => x.message.includes("teto do Simples"));
     expect(f?.severity).toBe("warning");
-    expect(f?.message).toContain("08/2026");
+    expect(f?.message).toContain("12/2026");
+    expect(f?.message).not.toContain("08/2026");
   });
 
-  it("blocks when RBT12 is already above the ceiling and skips the comparison", async () => {
+  it("RBT12 above the ceiling but RBA still below: warning, not a blocker; comparison skipped", async () => {
     const r = await runAgent({
       ...base,
       revenue: months("2026-06", Array(12).fill(420)),
       payroll12: 2_000_000 * 100,
     });
-    expect(r.findings.some((f) => f.severity === "blocker")).toBe(true);
+    expect(r.findings.some((f) => f.severity === "blocker")).toBe(false);
+    expect(r.findings.find((f) => f.message.includes("teto do Simples"))?.message).toContain(
+      "12/2026",
+    );
     expect(r.events.some((e) => e.kind === "regime.comparison")).toBe(false);
+  });
+
+  it("blocks when the calendar-year revenue is already above the ceiling", async () => {
+    const r = await runAgent({
+      ...base,
+      revenue: months("2026-06", Array(12).fill(900)),
+      payroll12: 2_000_000 * 100,
+    });
+    expect(r.findings.some((f) => f.severity === "blocker")).toBe(true);
+  });
+
+  it("passes ctx.sublimit to the comparison", async () => {
+    const rev = months("2026-06", Array(12).fill(166)); // RBT12 R$ 1.992 mil
+    const cmp = async (sublimit?: number) => {
+      const r = await runAgent({
+        ...base,
+        annex: "III",
+        issRateBp: 500,
+        revenue: rev,
+        payroll12: 800_000 * 100,
+        ...(sublimit ? { sublimit } : {}),
+      });
+      return r.events.find((e) => e.kind === "regime.comparison")?.payload as {
+        simples: { total: number };
+      };
+    };
+    expect((await cmp(1_800_000 * 100)).simples.total).toBeLessThan((await cmp()).simples.total);
   });
 
   it("warns instead of guessing when the history is short", async () => {
