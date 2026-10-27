@@ -1513,3 +1513,31 @@ button.agent-card:hover {
     display: none;
   }
 }
+
+/* Ceiling / sublimit usage under the client name */
+.ceiling {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 0 0;
+  font-size: 11px;
+  color: var(--muted, #6b7280);
+}
+.ceiling .bar {
+  flex: 0 0 56px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(120, 130, 150, 0.25);
+  overflow: hidden;
+}
+.ceiling .bar i {
+  display: block;
+  height: 100%;
+  background: #22c55e;
+}
+.ceiling.perto .bar i {
+  background: #f59e0b;
+}
+.ceiling.acima .bar i {
+  background: #ef4444;
+}

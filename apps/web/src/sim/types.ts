@@ -48,6 +48,8 @@ export interface Client {
   regimeLabel: string;
   /** Monthly revenue in centavos. */
   monthlyRevenueCents: number;
+  /** Gross revenue of the last 12 months in centavos, when known (otherwise 12x the month). */
+  rbt12Cents?: number;
   /** Tax obligation produced by the closing. */
   obligation: "PGDAS-D" | "IRPJ/CSLL";
   /** Tick at which the closing starts for this client (staggered). */

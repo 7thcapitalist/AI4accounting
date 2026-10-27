@@ -26,9 +26,30 @@ export interface Store {
   close(): void;
 }
 
+/** Read-only view for a process that only watches a store another process writes: no DDL, no pragmas. */
+export function openReader(path: string): Pick<Store, "db" | "listEvents" | "close"> {
+  const client = createClient({ url: `file:${path}` });
+  const db = drizzle(client, { schema: s });
+  return {
+    db,
+    listEvents: async (competenciaId) => {
+      const q = db.select().from(s.events);
+      return (competenciaId ? q.where(eq(s.events.competenciaId, competenciaId)) : q).orderBy(
+        asc(s.events.seq),
+      );
+    },
+    close: () => client.close(),
+  };
+}
+
 /** Opens a libSQL file (or ":memory:") and creates the schema. */
 export async function openStore(path: string): Promise<Store> {
   const client = createClient({ url: path === ":memory:" ? ":memory:" : `file:${path}` });
+  if (path !== ":memory:") {
+    // A board may read the file while month:run writes it: WAL lets readers and the writer coexist.
+    await client.execute("PRAGMA busy_timeout = 5000");
+    await client.execute("PRAGMA journal_mode = WAL");
+  }
   await migrate(client);
   const db = drizzle(client, { schema: s });
   return {

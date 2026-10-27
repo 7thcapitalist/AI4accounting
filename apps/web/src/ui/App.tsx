@@ -32,6 +32,7 @@ type Panel =
 const SEED = 2026;
 /** The month is already under way when the page opens (about day 3 of the close). */
 const WARM_TICKS = 15;
+const POLL_MS = 2000;
 const TICK_MS = { normal: 3500, rapido: 700 } as const;
 
 /**
@@ -52,22 +53,49 @@ function warmStart(seed: number): SimState {
 
 export function App() {
   const [sim, setSim] = useState<SimState>(() => warmStart(SEED));
+  // "store": the board follows the month store written by `pnpm month:run`; "sim": local demo.
+  const [source, setSource] = useState<"sim" | "store">("sim");
   const [paused, setPaused] = useState(false);
   const [speed, setSpeed] = useState<keyof typeof TICK_MS>("normal");
   const [view, setView] = useState<View>("painel");
   const [panel, setPanel] = useState<Panel | null>(null);
 
+  // Prefer the real store whenever it has a month: poll it so the board moves while month:run works.
+  useEffect(() => {
+    let stop = false;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/board", { cache: "no-store" });
+        const body = (await res.json()) as { state?: SimState | null };
+        if (stop || !res.ok) return;
+        if (body.state) {
+          setSource("store");
+          setSim(body.state);
+        } else setSource((s) => (s === "store" ? "sim" : s));
+      } catch {
+        // offline or restarting: keep what is on screen
+      }
+    };
+    poll();
+    const id = setInterval(poll, POLL_MS);
+    return () => {
+      stop = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  const fromStore = source === "store";
   const finished = selectIsFinished(sim);
   const needsAccountant = selectNeedsAccountant(sim);
   const queue = useMemo(() => selectAccountantQueue(sim), [sim]);
-  const live = !paused && !finished && !needsAccountant;
+  const live = fromStore ? !finished : !paused && !finished && !needsAccountant;
 
   // The agents work on their own: one step every few seconds until everything waits for the accountant.
   useEffect(() => {
-    if (!live) return;
+    if (!live || fromStore) return;
     const id = setInterval(() => setSim((s) => step(s)), TICK_MS[speed]);
     return () => clearInterval(id);
-  }, [live, speed]);
+  }, [live, fromStore, speed]);
 
   const onApprove = useCallback((clientId: string) => setSim((s) => approve(s, clientId)), []);
   const onReturn = useCallback(
@@ -112,33 +140,39 @@ export function App() {
           ))}
         </nav>
         <div className="sim-box">
-          <span>Simulação · dados fictícios</span>
-          <div className="sim-ctrl">
-            <button
-              type="button"
-              onClick={() => setPaused((p) => !p)}
-              aria-label={paused ? "Retomar" : "Pausar"}
-            >
-              <Icon name={paused ? "play" : "pause"} size={12} />
-            </button>
-            <button
-              type="button"
-              aria-pressed={speed === "rapido"}
-              onClick={() => setSpeed((v) => (v === "rapido" ? "normal" : "rapido"))}
-            >
-              {speed === "rapido" ? "rápido" : "normal"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSim(warmStart(SEED));
-                setPanel(null);
-              }}
-              aria-label="Recomeçar a simulação"
-            >
-              <Icon name="reset" size={12} />
-            </button>
-          </div>
+          <span>
+            {fromStore
+              ? "Ao vivo · lendo o mês do banco (dados fictícios)"
+              : "Simulação · dados fictícios"}
+          </span>
+          {!fromStore && (
+            <div className="sim-ctrl">
+              <button
+                type="button"
+                onClick={() => setPaused((p) => !p)}
+                aria-label={paused ? "Retomar" : "Pausar"}
+              >
+                <Icon name={paused ? "play" : "pause"} size={12} />
+              </button>
+              <button
+                type="button"
+                aria-pressed={speed === "rapido"}
+                onClick={() => setSpeed((v) => (v === "rapido" ? "normal" : "rapido"))}
+              >
+                {speed === "rapido" ? "rápido" : "normal"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSim(warmStart(SEED));
+                  setPanel(null);
+                }}
+                aria-label="Recomeçar a simulação"
+              >
+                <Icon name="reset" size={12} />
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -151,7 +185,9 @@ export function App() {
               {finished
                 ? "Mês fechado: todos os clientes entregues."
                 : live
-                  ? `Os agentes estão trabalhando · dia ${selectDay(sim)} de outubro · ${sim.clients.length} clientes`
+                  ? fromStore
+                    ? `Ao vivo: os agentes estão fechando o mês · ${sim.clients.length} clientes`
+                    : `Os agentes estão trabalhando · dia ${selectDay(sim)} de outubro · ${sim.clients.length} clientes`
                   : needsAccountant
                     ? `Os agentes terminaram o que podiam · ${queue.length} ${queue.length === 1 ? "cliente espera" : "clientes esperam"} você`
                     : "Simulação pausada"}
@@ -172,6 +208,7 @@ export function App() {
         )}
         {view === "fila" && (
           <Queue
+            readOnly={fromStore}
             sim={sim}
             queue={queue}
             onApprove={onApprove}
@@ -187,6 +224,7 @@ export function App() {
 
       {panel?.kind === "client" && (
         <ClientDrawer
+          readOnly={fromStore}
           sim={sim}
           clientId={panel.id}
           onClose={close}

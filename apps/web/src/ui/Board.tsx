@@ -2,7 +2,9 @@ import type { CSSProperties } from "react";
 import {
   AGENT_BY_PHASE,
   type AgentId,
+  type Client,
   type ClientProgress,
+  ceilingUsage,
   PHASES,
   type Phase,
   type QueueItem,
@@ -13,7 +15,7 @@ import {
 } from "../sim";
 import { phaseState } from "./content";
 import { Feed } from "./Feed";
-import { AGENT_LABEL, agentOf, isPresumido, PHASE_LABEL } from "./format";
+import { AGENT_LABEL, agentOf, isPresumido, money, PHASE_LABEL } from "./format";
 import { Icon } from "./icons";
 
 const SHORT_REGIME: Record<Regime, string> = {
@@ -193,6 +195,7 @@ export function Board({
                             {SHORT_REGIME[c.regime]}
                           </span>
                         </button>
+                        <Ceiling client={c} />
                       </td>
                       {PHASES.map((ph) => (
                         <td key={ph}>
@@ -215,6 +218,23 @@ export function Board({
         <Feed sim={sim} onOpen={onClient} />
       </div>
     </>
+  );
+}
+
+function Ceiling({ client }: { client: Client }) {
+  const u = ceilingUsage(client);
+  return (
+    <div
+      className={`ceiling ${u.level}`}
+      title={`${u.label[0]?.toUpperCase()}${u.label.slice(1)}: ${money(u.usedCents)} de ${money(u.limitCents)} nos últimos 12 meses${u.overSublimit ? " (acima do sublimite de R$ 3,6 milhões)" : ""}`}
+    >
+      <span className="bar">
+        <i style={{ width: `${Math.min(u.pct, 100)}%` }} />
+      </span>
+      <span className="num">
+        {u.pct}% · {u.label}
+      </span>
+    </div>
   );
 }
 

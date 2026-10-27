@@ -18,6 +18,7 @@ const SEVERITY: Record<string, string> = { baixa: "baixa", media: "média", alta
 export function ClientDrawer({
   sim,
   clientId,
+  readOnly = false,
   onClose,
   onApprove,
   onReturn,
@@ -25,6 +26,7 @@ export function ClientDrawer({
   onAgent,
 }: {
   sim: SimState;
+  readOnly?: boolean;
   clientId: string;
   onClose: () => void;
   onApprove: (id: string) => void;
@@ -58,7 +60,7 @@ export function ClientDrawer({
         </>
       }
       foot={
-        waiting ? (
+        waiting && !readOnly ? (
           <>
             {back && RETURNABLE_AGENTS.includes(back) && (
               <button type="button" className="btn" onClick={() => onReturn(c.id, back)}>
