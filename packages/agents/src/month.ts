@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { clients, competencias, firms, PHASES, type Phase, type Store } from "@ai4a/db";
 import { generatePortfolio } from "@ai4a/simulator";
 import { CaptureAgent, type CaptureProvider, SimulatorProvider } from "./capture";
+import { CheckAgent, type LlmProvider } from "./check";
 import { type ClientResponder, CollectionAgent, SimulatedClient } from "./collection";
 import { Coordinator, type MonthOutcome } from "./coordinator";
 import { type DasIssuer, DeliveryAgent, SimulatedDasIssuer } from "./delivery";
@@ -24,6 +25,8 @@ export interface SimMonthOptions {
   dataDir?: string;
   /** Capture source; defaults to the SimulatorProvider for the seed. */
   provider?: CaptureProvider;
+  /** Explains Check findings in pt-BR; omit to skip explanations. */
+  llm?: LlmProvider;
   /** Plays the client when documents are missing; defaults to a client holding the complete month. */
   responder?: ClientResponder;
   /** Issues the DAS in the delivery phase; defaults to the offline simulated issuer. */
@@ -60,6 +63,7 @@ export async function runSimMonth(
     provider: opts.provider ?? new SimulatorProvider(seed),
     dataDir,
   });
+  agents.conferencia = new CheckAgent({ store, llm: opts.llm });
   agents.apuracao = new TaxAgent({ store, context: new SimulatorTaxContext(seed) });
   agents.conciliacao = new ReconciliationAgent({ store });
   agents.entrega = new DeliveryAgent({

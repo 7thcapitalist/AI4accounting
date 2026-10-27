@@ -1,8 +1,16 @@
 // pnpm eval [--seed 7] [--rate 0.2] [--json] [--out report.json] [--min-recall 0.9]
-// Scores the agents' pipeline over an error-injected portfolio. Exits 1 when recall of a type the
-// pipeline covers falls under --min-recall (default 0.9, ADR 0006).
+// Scores the agents' pipeline (Check + Reconciliation) over an error-injected portfolio. Exits 1 when
+// recall of a type the pipeline covers falls under --min-recall (default 0.9, ADR 0006). Types owned by
+// later agents (e.g. wrong_revenue) read 0% until their steps land.
 import { writeFileSync } from "node:fs";
-import { evaluate, formatReport, generatePortfolio, injectErrors } from "@ai4a/simulator";
+import {
+  evaluate,
+  formatReport,
+  generatePortfolio,
+  injectErrors,
+  type Pipeline,
+} from "@ai4a/simulator";
+import { checkPipeline } from "./check";
 import { reconciliationPipeline } from "./reconciliation";
 
 const arg = (name: string) => {
@@ -12,10 +20,30 @@ const arg = (name: string) => {
 const seed = Number(arg("seed") ?? "1");
 const rate = arg("rate") === undefined ? undefined : Number(arg("rate"));
 const minRecall = Number(arg("min-recall") ?? "0.9");
-const COVERED = ["missing_invoice", "bank_without_document"];
+const COVERED = [
+  "wrong_cfop",
+  "iss_not_withheld",
+  "other_company",
+  "duplicate",
+  "cancelled",
+  "missing_invoice",
+  "bank_without_document",
+];
+
+/** Both agents look at the same month; their findings are added up. */
+const pipeline: Pipeline = async (input) => {
+  const [check, reconciliation] = await Promise.all([
+    checkPipeline(input),
+    reconciliationPipeline(input),
+  ]);
+  return {
+    findings: [...check.findings, ...reconciliation.findings],
+    tax: check.tax ?? reconciliation.tax,
+  };
+};
 
 const injected = injectErrors(generatePortfolio(seed), { rate });
-const report = await evaluate(injected, reconciliationPipeline);
+const report = await evaluate(injected, pipeline);
 const json = `${JSON.stringify({ ...report, answerKey: injected.answerKey }, null, 2)}\n`;
 const out = arg("out");
 if (out) writeFileSync(out, json);
