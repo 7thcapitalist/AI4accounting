@@ -1,0 +1,6 @@
+{
+  "status": 200,
+  "responseId": "synthetic-1",
+  "mensagens": [{ "codigo": "[Sucesso-PGDASD]", "texto": "Requisição efetuada com sucesso." }],
+  "dados": "{\"anoCalendario\":2025,\"periodos\":[{\"periodoApuracao\":202501,\"operacoes\":[{\"tipoOperacao\":\"Declaração Original\",\"numeroDeclaracao\":\"00000000201501001\"}]}]}"
+}
