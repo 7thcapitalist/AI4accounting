@@ -4,6 +4,7 @@ export * from "./capture";
 export * from "./collection";
 export type { CoordinatorDeps, MonthOutcome } from "./coordinator";
 export { Coordinator, canTransition } from "./coordinator";
+export * from "./delivery";
 export { runSimMonth, type SimMonthOptions } from "./month";
 export * from "./reconciliation";
 export { simApprover, stubAgents } from "./stubs";
