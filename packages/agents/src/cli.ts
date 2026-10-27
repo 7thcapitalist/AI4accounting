@@ -1,17 +1,25 @@
 import { openStore } from "@ai4a/db";
+import { FolderProvider } from "./capture";
 import { runSimMonth } from "./month";
 
 const args = process.argv.slice(2);
-const i = args.indexOf("--sim");
-const seed = Number(args[i + 1]);
-if (i < 0 || !Number.isInteger(seed)) {
-  console.error("usage: pnpm month:run --sim <seed> [--db <file>]");
+const opt = (name: string) => {
+  const k = args.indexOf(`--${name}`);
+  return k >= 0 ? args[k + 1] : undefined;
+};
+const seed = Number(opt("sim"));
+if (!Number.isInteger(seed)) {
+  console.error("usage: pnpm month:run --sim <seed> [--db <file>] [--folder <dir>] [--data <dir>]");
   process.exit(2);
 }
-const j = args.indexOf("--db");
-const store = await openStore(j >= 0 ? (args[j + 1] ?? ":memory:") : ":memory:");
-const { outcomes } = await runSimMonth(store, seed);
+const folder = opt("folder");
+const store = await openStore(opt("db") ?? ":memory:");
+const { outcomes } = await runSimMonth(store, seed, {
+  dataDir: opt("data"),
+  provider: folder ? new FolderProvider(folder) : undefined,
+});
 const events = await store.listEvents();
-console.log(`seed ${seed}: ${events.length} events`);
+const captured = events.filter((e) => e.kind === "document.captured").length;
+console.log(`seed ${seed}: ${events.length} events, ${captured} documents captured`);
 for (const [cid, o] of Object.entries(outcomes)) console.log(`${cid}: ${o.status}`);
 store.close();

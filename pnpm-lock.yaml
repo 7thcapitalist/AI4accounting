@@ -209,6 +209,12 @@ importers:
       '@ai4a/db':
         specifier: workspace:*
         version: link:../db
+      '@ai4a/fiscal-core':
+        specifier: workspace:*
+        version: link:../fiscal-core
+      '@ai4a/simulator':
+        specifier: workspace:*
+        version: link:../simulator
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(@libsql/client@0.18.0)

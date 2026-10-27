@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@ai4a/db": "workspace:*",
+    "@ai4a/fiscal-core": "workspace:*",
+    "@ai4a/simulator": "workspace:*",
     "drizzle-orm": "^0.45.4"
   },
   "devDependencies": {
