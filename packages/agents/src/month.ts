@@ -7,6 +7,7 @@ import { CaptureAgent, type CaptureProvider, SimulatorProvider } from "./capture
 import { Coordinator, type MonthOutcome } from "./coordinator";
 import { prng } from "./prng";
 import { simApprover, stubAgents } from "./stubs";
+import { SimulatorTaxContext, TaxAgent } from "./tax";
 import type { Agent } from "./types";
 
 export interface SimMonthResult {
@@ -42,6 +43,7 @@ export async function runSimMonth(
     provider: opts.provider ?? new SimulatorProvider(seed),
     dataDir,
   });
+  agents.apuracao = new TaxAgent({ store, context: new SimulatorTaxContext(seed) });
   await store.db.insert(firms).values({ id: "firm-sim", name: "Escritorio Simulado" });
   let tick = 0;
   const outcomes: Record<string, MonthOutcome> = {};
