@@ -170,10 +170,18 @@ export interface ObligationDeadline {
 export interface QueueItem {
   client: Client;
   findings: Finding[];
+  /** "approval": the agents finished and wait for sign-off; "exception": blocked with open findings. */
+  kind: "approval" | "exception";
 }
 
 export interface AgentStats extends AgentCounters {
   agent: Agent;
   /** Clients currently in this agent's phase. */
   activeClients: number;
+  /** Names of the clients the agent is working on right now. */
+  currentClients: string[];
+  /** Minutes of manual work this agent avoided so far. */
+  savedMinutes: number;
+  /** Actions per simulated day (never divides by less than one day). */
+  perDay: number;
 }

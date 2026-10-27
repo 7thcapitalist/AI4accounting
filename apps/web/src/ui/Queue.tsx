@@ -19,7 +19,7 @@ export function Queue({
   onOpen: (id: string) => void;
 }) {
   const [sel, setSel] = useState(0);
-  const clean = queue.filter((q) => q.findings.length === 0);
+  const clean = queue.filter((q) => q.kind === "approval" && q.findings.length === 0);
 
   // Keyboard-first: j/k move, a approves, d sends back, Enter opens the client.
   useEffect(() => {
@@ -30,6 +30,7 @@ export function Queue({
       if (e.key === "j") setSel((i) => Math.min(i + 1, queue.length - 1));
       else if (e.key === "k") setSel((i) => Math.max(i - 1, 0));
       else if (readOnly) return;
+      else if (item?.kind !== "approval") return;
       else if (e.key === "a" && item) onApprove(item.client.id);
       else if (e.key === "d" && item?.findings[0]) onReturn(item.client.id, item.findings[0].agent);
       else if (e.key === "Enter" && item) onOpen(item.client.id);
@@ -83,14 +84,18 @@ export function Queue({
                 <h3>{q.client.name}</h3>
                 <div className="meta">
                   <span className="pill">{q.client.regimeLabel}</span>
-                  <span>{q.client.obligation} pronto para entregar</span>
+                  <span>
+                    {q.kind === "approval"
+                      ? `${q.client.obligation} pronto para entregar`
+                      : "Bloqueado: o agente parou e espera você resolver"}
+                  </span>
                 </div>
               </div>
               <div className="controls">
                 <button type="button" className="btn sm" onClick={() => onOpen(q.client.id)}>
                   Ver detalhes
                 </button>
-                {!readOnly && back && RETURNABLE_AGENTS.includes(back) && (
+                {!readOnly && q.kind === "approval" && back && RETURNABLE_AGENTS.includes(back) && (
                   <button
                     type="button"
                     className="btn sm"
@@ -99,7 +104,7 @@ export function Queue({
                     Devolver para {AGENT_LABEL[back]}
                   </button>
                 )}
-                {!readOnly && (
+                {!readOnly && q.kind === "approval" && (
                   <button
                     type="button"
                     className="btn sm ok"
