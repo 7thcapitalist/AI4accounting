@@ -1546,3 +1546,57 @@ button.agent-card:hover {
 .ceiling.acima .bar i {
   background: #ef4444;
 }
+
+.client-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.client-page h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.source-viewer pre {
+  margin: 8px 0 0;
+  max-height: 360px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.docs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.docs td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.timeline {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.timeline .tl-phase {
+  display: inline-block;
+  min-width: 96px;
+  color: var(--ink);
+}
+
+.client-page .phases li {
+  white-space: nowrap;
+}

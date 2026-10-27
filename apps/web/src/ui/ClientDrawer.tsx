@@ -19,6 +19,7 @@ export function ClientDrawer({
   sim,
   clientId,
   readOnly = false,
+  pageHref,
   onClose,
   onApprove,
   onReturn,
@@ -27,6 +28,8 @@ export function ClientDrawer({
 }: {
   sim: SimState;
   readOnly?: boolean;
+  /** Full client month page; only offered when the board reads the real store. */
+  pageHref?: string;
   clientId: string;
   onClose: () => void;
   onApprove: (id: string) => void;
@@ -56,6 +59,7 @@ export function ClientDrawer({
             <span>{c.obligation}</span>
             <span>·</span>
             <span>faturamento do mês {money(c.monthlyRevenueCents)}</span>
+            {pageHref && <a href={pageHref}>Abrir página do cliente</a>}
           </div>
         </>
       }

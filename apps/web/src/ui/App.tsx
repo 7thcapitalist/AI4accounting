@@ -266,6 +266,7 @@ export function App() {
         <ClientDrawer
           sim={sim}
           clientId={panel.id}
+          pageHref={fromStore ? `/clientes/${encodeURIComponent(panel.id)}` : undefined}
           onClose={close}
           onApprove={onApprove}
           onReturn={onReturn}
