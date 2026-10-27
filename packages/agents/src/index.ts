@@ -7,6 +7,7 @@ export { Coordinator, canTransition } from "./coordinator";
 export * from "./delivery";
 export { runSimMonth, type SimMonthOptions } from "./month";
 export * from "./reconciliation";
+export * from "./regime";
 export { simApprover, stubAgents } from "./stubs";
 export * from "./tax";
 export * from "./types";
