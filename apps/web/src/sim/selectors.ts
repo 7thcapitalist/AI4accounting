@@ -1,6 +1,13 @@
-import { AGENT_BY_PHASE, AGENTS } from "./data";
+import { AGENT_BY_PHASE, AGENTS, SAVED_MINUTES } from "./data";
 import { DEADLINE_DAYS, TICKS_PER_DAY } from "./engine";
-import type { AgentStats, Kpis, ObligationDeadline, QueueItem, SimState } from "./types";
+import {
+  type AgentStats,
+  type Kpis,
+  type ObligationDeadline,
+  PHASES,
+  type QueueItem,
+  type SimState,
+} from "./types";
 
 /** Simulated day of the month after the competence (starts at 1). */
 export function selectDay(s: SimState): number {
@@ -40,28 +47,56 @@ export function selectKpis(s: SimState): Kpis {
   };
 }
 
-/** Clients waiting for the accountant, oldest first. */
+/**
+ * What needs the accountant, across clients: approvals (agents finished) and exceptions (blocked
+ * with open findings). Approvals come first, oldest first.
+ */
 export function selectAccountantQueue(s: SimState): QueueItem[] {
   const queue: QueueItem[] = [];
   for (const p of s.progress) {
     const client = s.clients.find((c) => c.id === p.clientId);
-    if (p.status !== "awaiting_approval" || !client) continue;
-    queue.push({
-      client,
-      findings: s.findings.filter((f) => f.clientId === p.clientId && f.status === "open"),
-    });
+    if (!client) continue;
+    const findings = s.findings.filter((f) => f.clientId === p.clientId && f.status === "open");
+    if (p.status === "awaiting_approval") queue.push({ client, findings, kind: "approval" });
+    else if (p.status === "blocked" && findings.length)
+      queue.push({ client, findings, kind: "exception" });
   }
-  return queue;
+  return queue.sort((a, b) => Number(b.kind === "approval") - Number(a.kind === "approval"));
+}
+
+/** Minutes saved by `agent`: its phase counts once per client that moved past it. */
+function savedBy(s: SimState, agent: AgentStats["agent"]): number {
+  let minutes = 0;
+  for (const p of s.progress) {
+    const client = s.clients.find((c) => c.id === p.clientId);
+    if (!client) continue;
+    for (const ph of PHASES) {
+      if (AGENT_BY_PHASE[ph] !== agent.id) continue;
+      const passed = p.status === "done" || PHASES.indexOf(ph) < PHASES.indexOf(p.phase);
+      if (passed) minutes += SAVED_MINUTES[client.regime][ph];
+    }
+  }
+  return minutes;
 }
 
 export function selectAgentStats(s: SimState): AgentStats[] {
-  return AGENTS.map((agent) => ({
-    agent,
-    ...s.counters[agent.id],
-    activeClients: s.progress.filter(
+  const days = Math.max(selectDay(s) - 1, 1);
+  return AGENTS.map((agent) => {
+    const active = s.progress.filter(
       (p) => p.status === "working" && AGENT_BY_PHASE[p.phase] === agent.id,
-    ).length,
-  }));
+    );
+    const counters = s.counters[agent.id];
+    return {
+      agent,
+      ...counters,
+      activeClients: active.length,
+      currentClients: active
+        .map((p) => s.clients.find((c) => c.id === p.clientId)?.name)
+        .filter((n): n is string => n !== undefined),
+      savedMinutes: savedBy(s, agent),
+      perDay: Math.round((counters.actions / days) * 10) / 10,
+    };
+  });
 }
 
 /** True when every client reached Entrega. */
