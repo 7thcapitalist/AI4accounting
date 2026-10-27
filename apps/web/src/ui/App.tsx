@@ -21,6 +21,7 @@ import { ClientDrawer } from "./ClientDrawer";
 import { HowItWorks } from "./HowItWorks";
 import { Icon } from "./icons";
 import { PhaseDrawer } from "./PhaseDrawer";
+import { postDecision } from "./post-decision";
 import { Queue } from "./Queue";
 
 type View = "painel" | "fila" | "agentes" | "como";
@@ -45,7 +46,7 @@ function warmStart(seed: number): SimState {
     s = step(s);
     if (i < WARM_TICKS - 4) {
       for (const q of selectAccountantQueue(s))
-        if (q.findings.length === 0) s = approve(s, q.client.id);
+        if (q.kind === "approval" && q.findings.length === 0) s = approve(s, q.client.id);
     }
   }
   return s;
@@ -97,10 +98,35 @@ export function App() {
     return () => clearInterval(id);
   }, [live, fromStore, speed]);
 
-  const onApprove = useCallback((clientId: string) => setSim((s) => approve(s, clientId)), []);
+  // In store mode the decision goes to the store (the Coordinator is waiting for it); it counts as
+  // made only once the server answers ok, and the next poll shows the result. Failures stay visible.
+  const [token, setToken] = useState("");
+  const [pending, setPending] = useState<string | null>(null);
+  const [decideError, setDecideError] = useState<string | null>(null);
+  useEffect(() => setToken(sessionStorage.getItem("ai4-accountant-token") ?? ""), []);
+  const saveToken = (v: string) => {
+    setToken(v);
+    sessionStorage.setItem("ai4-accountant-token", v);
+  };
+  const decide = useCallback(
+    async (clientId: string, decision: "approved" | "sent_back") => {
+      setPending(clientId);
+      setDecideError(null);
+      const r = await postDecision(clientId, decision, token);
+      setPending(null);
+      if (!r.ok) setDecideError(r.message);
+    },
+    [token],
+  );
+  const onApprove = useCallback(
+    (clientId: string) =>
+      fromStore ? decide(clientId, "approved") : setSim((s) => approve(s, clientId)),
+    [fromStore, decide],
+  );
   const onReturn = useCallback(
-    (clientId: string, agent?: AgentId) => setSim((s) => returnToAgent(s, clientId, agent)),
-    [],
+    (clientId: string, agent?: AgentId) =>
+      fromStore ? decide(clientId, "sent_back") : setSim((s) => returnToAgent(s, clientId, agent)),
+    [fromStore, decide],
   );
   const close = useCallback(() => setPanel(null), []);
   const go = (v: View) => {
@@ -195,6 +221,21 @@ export function App() {
           </div>
         </header>
 
+        {(pending || decideError) && (
+          <div className="banner" role={decideError ? "alert" : "status"}>
+            <span>{decideError ?? "Gravando a decisão…"}</span>
+            {decideError && (
+              <input
+                type="password"
+                aria-label="Token do contador"
+                placeholder="Token do contador"
+                value={token}
+                onChange={(e) => saveToken(e.target.value)}
+              />
+            )}
+          </div>
+        )}
+
         {view === "painel" && (
           <Board
             sim={sim}
@@ -208,7 +249,6 @@ export function App() {
         )}
         {view === "fila" && (
           <Queue
-            readOnly={fromStore}
             sim={sim}
             queue={queue}
             onApprove={onApprove}
@@ -224,7 +264,6 @@ export function App() {
 
       {panel?.kind === "client" && (
         <ClientDrawer
-          readOnly={fromStore}
           sim={sim}
           clientId={panel.id}
           onClose={close}

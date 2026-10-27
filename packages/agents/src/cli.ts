@@ -1,4 +1,5 @@
 import { openStore } from "@ai4a/db";
+import { accountantApprover } from "./accountant";
 import { FolderProvider } from "./capture";
 import { runSimMonth } from "./month";
 
@@ -14,7 +15,7 @@ const num = (name: string): number | undefined => {
 const seed = Number(opt("sim"));
 if (!Number.isInteger(seed)) {
   console.error(
-    "usage: pnpm month:run --sim <seed> [--db <file>] [--folder <dir>] [--data <dir>] [--delay <ms>] [--clients <n>]",
+    "usage: pnpm month:run --sim <seed> [--db <file>] [--folder <dir>] [--data <dir>] [--delay <ms>] [--clients <n>] [--accountant]",
   );
   process.exit(2);
 }
@@ -25,6 +26,9 @@ const { outcomes } = await runSimMonth(store, seed, {
   provider: folder ? new FolderProvider(folder) : undefined,
   delayMs: num("delay"),
   nClients: num("clients"),
+  // --accountant: stop at Aprovacao and wait for the decision made in the web queue.
+  approver: args.includes("--accountant") ? accountantApprover(store) : undefined,
+  parallel: args.includes("--accountant"),
 });
 const events = await store.listEvents();
 const captured = events.filter((e) => e.kind === "document.captured").length;
