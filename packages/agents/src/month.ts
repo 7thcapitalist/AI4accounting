@@ -6,6 +6,7 @@ import { generatePortfolio } from "@ai4a/simulator";
 import { CaptureAgent, type CaptureProvider, SimulatorProvider } from "./capture";
 import { type ClientResponder, CollectionAgent, SimulatedClient } from "./collection";
 import { Coordinator, type MonthOutcome } from "./coordinator";
+import { type DasIssuer, DeliveryAgent, SimulatedDasIssuer } from "./delivery";
 import { prng } from "./prng";
 import { ReconciliationAgent } from "./reconciliation";
 import { simApprover, stubAgents } from "./stubs";
@@ -25,6 +26,8 @@ export interface SimMonthOptions {
   provider?: CaptureProvider;
   /** Plays the client when documents are missing; defaults to a client holding the complete month. */
   responder?: ClientResponder;
+  /** Issues the DAS in the delivery phase; defaults to the offline simulated issuer. */
+  dasIssuer?: DasIssuer;
   /** Pause (ms) before each agent works, so a board watching the store sees the month progress. */
   delayMs?: number;
   /** Who approves; defaults to the simulated accountant. Pass `accountantApprover` to wait for the web queue. */
@@ -59,6 +62,11 @@ export async function runSimMonth(
   });
   agents.apuracao = new TaxAgent({ store, context: new SimulatorTaxContext(seed) });
   agents.conciliacao = new ReconciliationAgent({ store });
+  agents.entrega = new DeliveryAgent({
+    store,
+    issuer: opts.dasIssuer ?? new SimulatedDasIssuer(),
+    dataDir,
+  });
   agents.coleta = new CollectionAgent({
     store,
     responder: opts.responder ?? new SimulatedClient(new SimulatorProvider(seed)),
