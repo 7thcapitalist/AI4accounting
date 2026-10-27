@@ -4,11 +4,12 @@ import { join } from "node:path";
 import { clients, competencias, firms, PHASES, type Phase, type Store } from "@ai4a/db";
 import { generatePortfolio } from "@ai4a/simulator";
 import { CaptureAgent, type CaptureProvider, SimulatorProvider } from "./capture";
+import { type ClientResponder, CollectionAgent, SimulatedClient } from "./collection";
 import { Coordinator, type MonthOutcome } from "./coordinator";
 import { prng } from "./prng";
 import { simApprover, stubAgents } from "./stubs";
 import { SimulatorTaxContext, TaxAgent } from "./tax";
-import type { Agent } from "./types";
+import type { Agent, Approver } from "./types";
 
 export interface SimMonthResult {
   outcomes: Record<string, MonthOutcome>;
@@ -21,8 +22,14 @@ export interface SimMonthOptions {
   dataDir?: string;
   /** Capture source; defaults to the SimulatorProvider for the seed. */
   provider?: CaptureProvider;
+  /** Plays the client when documents are missing; defaults to a client holding the complete month. */
+  responder?: ClientResponder;
   /** Pause (ms) before each agent works, so a board watching the store sees the month progress. */
   delayMs?: number;
+  /** Who approves; defaults to the simulated accountant. Pass `accountantApprover` to wait for the web queue. */
+  approver?: Approver;
+  /** Run all clients at once, so several can wait for the accountant together. */
+  parallel?: boolean;
 }
 
 /**
@@ -34,7 +41,13 @@ export async function runSimMonth(
   seed: number,
   opts: SimMonthOptions = {},
 ): Promise<SimMonthResult> {
-  const { month = "2026-09", nClients = 3, delayMs = 0 } = opts;
+  const {
+    month = "2026-09",
+    nClients = 3,
+    delayMs = 0,
+    approver = simApprover,
+    parallel = false,
+  } = opts;
   const rand = prng(seed ^ 0x9e3779b9);
   const dataDir = opts.dataDir ?? mkdtempSync(join(tmpdir(), "ai4a-capture-"));
   const agents = stubAgents(seed);
@@ -44,13 +57,18 @@ export async function runSimMonth(
     dataDir,
   });
   agents.apuracao = new TaxAgent({ store, context: new SimulatorTaxContext(seed) });
+  agents.coleta = new CollectionAgent({
+    store,
+    responder: opts.responder ?? new SimulatedClient(new SimulatorProvider(seed)),
+    dataDir,
+  });
   await store.db.insert(firms).values({ id: "firm-sim", name: "Escritorio Simulado" });
   let tick = 0;
   const outcomes: Record<string, MonthOutcome> = {};
   const coord = new Coordinator({
     store,
     agents: withDelay(agents, delayMs),
-    approver: simApprover,
+    approver,
     now: () => ++tick,
   });
   const { companies } = generatePortfolio(seed, [month]);
@@ -81,9 +99,14 @@ export async function runSimMonth(
     });
   }
   // Every client is on the board from the start; the phases then fill in one client at a time.
-  for (let i = 1; i <= picked.length; i++) {
-    const cid = `comp-${i}-${month}`;
-    outcomes[cid] = await coord.runCompetencia(cid);
+  const cids = picked.map((_, n) => `comp-${n + 1}-${month}`);
+  if (parallel) {
+    const done = await Promise.all(cids.map((cid) => coord.runCompetencia(cid)));
+    cids.forEach((cid, i) => {
+      outcomes[cid] = done[i] as MonthOutcome;
+    });
+  } else {
+    for (const cid of cids) outcomes[cid] = await coord.runCompetencia(cid);
   }
   return { outcomes };
 }
