@@ -1204,6 +1204,11 @@ button.cell.working {
   color: var(--accent);
 }
 
+.state.blocked {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
 .state.waiting_you {
   background: var(--warn-soft);
   color: var(--warn);

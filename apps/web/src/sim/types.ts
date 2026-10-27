@@ -103,7 +103,7 @@ export interface FeedEvent {
   text: string;
 }
 
-export type ClientStatus = "waiting" | "working" | "awaiting_approval" | "done";
+export type ClientStatus = "waiting" | "working" | "awaiting_approval" | "blocked" | "done";
 
 export interface ClientProgress {
   clientId: string;

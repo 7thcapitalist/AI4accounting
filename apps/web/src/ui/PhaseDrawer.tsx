@@ -9,6 +9,7 @@ const STATE_LABEL = {
   done: "Concluída",
   working: "Em andamento",
   waiting_you: "Esperando você",
+  blocked: "Bloqueada",
   queued: "Na fila",
   not_started: "Ainda não começou",
 } as const;

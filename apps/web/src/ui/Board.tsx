@@ -280,6 +280,13 @@ function Cell({
       </button>
     );
   }
+  if (state === "blocked") {
+    return (
+      <button type="button" className="cell blocked" onClick={onPhase} title={title}>
+        Bloqueada
+      </button>
+    );
+  }
   if (state === "queued") return <div className="cell">na fila</div>;
   return (
     <button

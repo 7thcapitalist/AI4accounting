@@ -1,6 +1,5 @@
 import {
   agentRuns,
-  approvals,
   clients as clientsTable,
   competencias,
   PHASES as DB_PHASES,
@@ -123,16 +122,22 @@ export async function readBoard(store: Pick<Store, "db" | "listEvents">): Promis
     });
   }
 
-  const resolvedBy = new Map<string, "approved" | "returned">();
-  for (const a of await db.select().from(approvals))
-    if (compIds.has(a.competenciaId))
-      resolvedBy.set(a.competenciaId, a.decision === "approved" ? "approved" : "returned");
+  // An approval only settles findings recorded before it (event order), never later ones.
+  const approvedAt = new Map<string, number>();
+  for (const e of events)
+    if (e.kind === "approval.approved") approvedAt.set(e.competenciaId, e.seq);
+  const createdAt = new Map<string, number>();
+  for (const e of events)
+    if (e.kind === "finding.created") createdAt.set(String(payloadOf(e).id), e.seq);
 
   const findings: Finding[] = (await db.select().from(findingsTable))
     .filter((f) => compIds.has(f.competenciaId))
     .map((f) => {
       const phase = phaseOfRun.get(f.runId) ?? "Conferencia";
-      const resolved = f.resolved === 1 || resolvedBy.get(f.competenciaId) === "approved";
+      const approved = approvedAt.get(f.competenciaId);
+      const created = createdAt.get(f.id);
+      const resolved =
+        f.resolved === 1 || (approved !== undefined && created !== undefined && created < approved);
       return {
         id: f.id,
         clientId: clientByComp.get(f.competenciaId) as string,
@@ -175,9 +180,11 @@ export async function readBoard(store: Pick<Store, "db" | "listEvents">): Promis
         ? "done"
         : st === "running"
           ? "working"
-          : st === "waiting" || st === "blocked"
-            ? "awaiting_approval"
-            : "waiting",
+          : st === "blocked"
+            ? "blocked"
+            : st === "waiting"
+              ? "awaiting_approval"
+              : "waiting",
       ticksLeft: 0,
       reworked: false,
       savedMinutes: done.reduce(

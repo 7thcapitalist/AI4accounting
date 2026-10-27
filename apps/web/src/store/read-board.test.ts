@@ -1,8 +1,8 @@
 import { runSimMonth } from "@ai4a/agents";
-import { openStore } from "@ai4a/db";
+import { agentRuns, findings, openStore, PHASES } from "@ai4a/db";
 import { describe, expect, it } from "vitest";
 import { ceilingUsage } from "../sim/ceiling";
-import { selectKpis } from "../sim/selectors";
+import { selectKpis, selectNeedsAccountant } from "../sim/selectors";
 import { readBoard } from "./read-board";
 
 describe("readBoard", () => {
@@ -30,6 +30,44 @@ describe("readBoard", () => {
     await st.setPhaseState("comp-1-2026-09", "entrega", "running", 999);
     const s = await readBoard(st);
     expect(s?.progress[0]).toMatchObject({ phase: "Entrega", status: "working" });
+    st.close();
+  });
+
+  it("shows a blocked Captura as blocked, not as awaiting approval", async () => {
+    const st = await openStore(":memory:");
+    await runSimMonth(st, 3, { nClients: 1 });
+    for (const ph of PHASES)
+      await st.setPhaseState("comp-1-2026-09", ph, ph === "captura" ? "blocked" : "pending", 999);
+    const s = await readBoard(st);
+    expect(s?.progress[0]).toMatchObject({ phase: "Captura", status: "blocked" });
+    expect(selectNeedsAccountant(s as NonNullable<typeof s>)).toBe(false);
+    st.close();
+  });
+
+  it("keeps a finding created after the approval open", async () => {
+    const st = await openStore(":memory:");
+    await runSimMonth(st, 3, { nClients: 1 });
+    const before = await readBoard(st);
+    const [run] = await st.db.select().from(agentRuns);
+    await st.db.insert(findings).values({
+      id: "late-1",
+      competenciaId: "comp-1-2026-09",
+      runId: (run as { id: string }).id,
+      severity: "warning",
+      message: "Guia divergente",
+    });
+    await st.appendEvent({
+      at: 9999,
+      competenciaId: "comp-1-2026-09",
+      kind: "finding.created",
+      payload: { id: "late-1", severity: "warning", message: "Guia divergente" },
+    });
+    const s = await readBoard(st);
+    const late = s?.findings.find((f) => f.id === "late-1");
+    expect(late).toMatchObject({ status: "open" });
+    expect(late?.resolution).toBeUndefined();
+    const early = before?.findings.filter((f) => f.status === "resolved") ?? [];
+    for (const f of early) expect(s?.findings.find((x) => x.id === f.id)?.status).toBe("resolved");
     st.close();
   });
 });

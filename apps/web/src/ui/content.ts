@@ -153,7 +153,7 @@ export const AGENT_INFO: Record<AgentId, AgentInfo> = {
   },
 };
 
-export type PhaseState = "done" | "working" | "waiting_you" | "queued" | "not_started";
+export type PhaseState = "done" | "working" | "waiting_you" | "blocked" | "queued" | "not_started";
 
 export function phaseState(p: ClientProgress, phase: Phase): PhaseState {
   const idx = PHASES.indexOf(phase);
@@ -161,6 +161,7 @@ export function phaseState(p: ClientProgress, phase: Phase): PhaseState {
   if (p.status === "done" || idx < cur) return "done";
   if (idx > cur) return "not_started";
   if (p.status === "awaiting_approval") return "waiting_you";
+  if (p.status === "blocked") return "blocked";
   if (p.status === "waiting") return "queued";
   return "working";
 }
