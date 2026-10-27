@@ -2,13 +2,17 @@ import { clients, competencias, firms, PHASES, type Phase, type Store } from "@a
 import { Coordinator, type MonthOutcome } from "./coordinator";
 import { prng } from "./prng";
 import { simApprover, stubAgents } from "./stubs";
-import type { Agent } from "./types";
+import type { Agent, Approver } from "./types";
 
 export interface SimMonthOptions {
   month?: string;
   nClients?: number;
   /** Pause (ms) before each agent works, so a board watching the store sees the month progress. */
   delayMs?: number;
+  /** Who approves; defaults to the simulated accountant. Pass `accountantApprover` to wait for the web queue. */
+  approver?: Approver;
+  /** Run all clients at once, so several can wait for the accountant together. */
+  parallel?: boolean;
 }
 
 export interface SimMonthResult {
@@ -19,7 +23,13 @@ export interface SimMonthResult {
 export async function runSimMonth(
   store: Store,
   seed: number,
-  { month = "2026-09", nClients = 3, delayMs = 0 }: SimMonthOptions = {},
+  {
+    month = "2026-09",
+    nClients = 3,
+    delayMs = 0,
+    approver = simApprover,
+    parallel = false,
+  }: SimMonthOptions = {},
 ): Promise<SimMonthResult> {
   const rand = prng(seed ^ 0x9e3779b9);
   await store.db.insert(firms).values({ id: "firm-sim", name: "Escritorio Simulado" });
@@ -29,7 +39,7 @@ export async function runSimMonth(
   const coord = new Coordinator({
     store,
     agents: withDelay(stubAgents(seed), delayMs),
-    approver: simApprover,
+    approver,
     now: () => ++tick,
   });
   for (let i = 1; i <= nClients; i++) {
@@ -57,9 +67,14 @@ export async function runSimMonth(
     });
   }
   // Every client is on the board from the start; the phases then fill in one client at a time.
-  for (let i = 1; i <= nClients; i++) {
-    const cid = `comp-${i}-${month}`;
-    outcomes[cid] = await coord.runCompetencia(cid);
+  const cids = Array.from({ length: nClients }, (_, i) => `comp-${i + 1}-${month}`);
+  if (parallel) {
+    const done = await Promise.all(cids.map((cid) => coord.runCompetencia(cid)));
+    cids.forEach((cid, i) => {
+      outcomes[cid] = done[i] as MonthOutcome;
+    });
+  } else {
+    for (const cid of cids) outcomes[cid] = await coord.runCompetencia(cid);
   }
   return { outcomes };
 }

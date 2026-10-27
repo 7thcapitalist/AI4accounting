@@ -45,7 +45,7 @@ function warmStart(seed: number): SimState {
     s = step(s);
     if (i < WARM_TICKS - 4) {
       for (const q of selectAccountantQueue(s))
-        if (q.findings.length === 0) s = approve(s, q.client.id);
+        if (q.kind === "approval" && q.findings.length === 0) s = approve(s, q.client.id);
     }
   }
   return s;
@@ -97,10 +97,24 @@ export function App() {
     return () => clearInterval(id);
   }, [live, fromStore, speed]);
 
-  const onApprove = useCallback((clientId: string) => setSim((s) => approve(s, clientId)), []);
+  // In store mode the decision goes to the store (the Coordinator is waiting for it); the next
+  // poll shows the result. In sim mode it changes the local simulation.
+  const decide = useCallback((clientId: string, decision: "approved" | "sent_back") => {
+    void fetch("/api/decision", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ clientId, decision }),
+    }).catch(() => undefined);
+  }, []);
+  const onApprove = useCallback(
+    (clientId: string) =>
+      fromStore ? decide(clientId, "approved") : setSim((s) => approve(s, clientId)),
+    [fromStore, decide],
+  );
   const onReturn = useCallback(
-    (clientId: string, agent?: AgentId) => setSim((s) => returnToAgent(s, clientId, agent)),
-    [],
+    (clientId: string, agent?: AgentId) =>
+      fromStore ? decide(clientId, "sent_back") : setSim((s) => returnToAgent(s, clientId, agent)),
+    [fromStore, decide],
   );
   const close = useCallback(() => setPanel(null), []);
   const go = (v: View) => {
@@ -208,7 +222,6 @@ export function App() {
         )}
         {view === "fila" && (
           <Queue
-            readOnly={fromStore}
             sim={sim}
             queue={queue}
             onApprove={onApprove}
@@ -224,7 +237,6 @@ export function App() {
 
       {panel?.kind === "client" && (
         <ClientDrawer
-          readOnly={fromStore}
           sim={sim}
           clientId={panel.id}
           onClose={close}

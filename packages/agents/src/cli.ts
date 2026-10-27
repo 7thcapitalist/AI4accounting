@@ -1,11 +1,14 @@
 import { openStore } from "@ai4a/db";
+import { accountantApprover } from "./accountant";
 import { runSimMonth } from "./month";
 
 const args = process.argv.slice(2);
 const i = args.indexOf("--sim");
 const seed = Number(args[i + 1]);
 if (i < 0 || !Number.isInteger(seed)) {
-  console.error("usage: pnpm month:run --sim <seed> [--db <file>] [--delay <ms>] [--clients <n>]");
+  console.error(
+    "usage: pnpm month:run --sim <seed> [--db <file>] [--delay <ms>] [--clients <n>] [--accountant]",
+  );
   process.exit(2);
 }
 const j = args.indexOf("--db");
@@ -18,6 +21,9 @@ const flag = (name: string): number | undefined => {
 const { outcomes } = await runSimMonth(store, seed, {
   delayMs: flag("--delay"),
   nClients: flag("--clients"),
+  // --accountant: stop at Aprovacao and wait for the decision made in the web queue.
+  approver: args.includes("--accountant") ? accountantApprover(store) : undefined,
+  parallel: args.includes("--accountant"),
 });
 const events = await store.listEvents();
 console.log(`seed ${seed}: ${events.length} events`);

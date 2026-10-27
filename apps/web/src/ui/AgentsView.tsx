@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { AGENT_BY_PHASE, type AgentId, type SimState, selectAgentStats } from "../sim";
+import { type AgentId, type SimState, selectAgentStats } from "../sim";
 import { AGENT_INFO } from "./content";
 import { AGENT_LABEL } from "./format";
 import { Icon } from "./icons";
@@ -14,10 +14,7 @@ export function AgentsView({ sim, onAgent }: { sim: SimState; onAgent: (id: Agen
       </p>
       <section className="agent-grid" aria-label="Agentes">
         {stats.map((s) => {
-          const working = sim.progress
-            .filter((p) => p.status === "working" && AGENT_BY_PHASE[p.phase] === s.agent.id)
-            .map((p) => sim.clients.find((c) => c.id === p.clientId)?.name)
-            .filter(Boolean);
+          const working = s.currentClients;
           return (
             <button
               key={s.agent.id}
@@ -38,16 +35,22 @@ export function AgentsView({ sim, onAgent }: { sim: SimState; onAgent: (id: Agen
                 </div>
               </div>
               <div className="now">
-                {working.length ? `Agora: ${working.join(", ")}` : "Sem cliente nesta etapa agora"}
+                {working.length
+                  ? `Agora: ${working.join(", ")}`
+                  : "Sem tarefa agora: esperando o próximo cliente"}
               </div>
               <div className="stats num">
                 <div>
                   <b>{s.actions}</b>
-                  <span>ações</span>
+                  <span>ações · {s.perDay}/dia</span>
                 </div>
                 <div>
                   <b style={{ color: s.findings ? "var(--bad)" : undefined }}>{s.findings}</b>
-                  <span>exceções</span>
+                  <span>erros pegos</span>
+                </div>
+                <div>
+                  <b>{Math.round((s.savedMinutes / 60) * 10) / 10} h</b>
+                  <span>economizadas</span>
                 </div>
                 <div>
                   <b>{s.returned}</b>
