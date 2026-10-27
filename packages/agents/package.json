@@ -1,0 +1,27 @@
+{
+  "name": "@ai4a/agents",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "month:run": "tsx src/cli.ts",
+    "eval": "tsx src/eval-cli.ts"
+  },
+  "dependencies": {
+    "@ai4a/db": "workspace:*",
+    "@ai4a/fiscal-core": "workspace:*",
+    "@ai4a/integra-contador": "workspace:*",
+    "@ai4a/simulator": "workspace:*",
+    "drizzle-orm": "^0.45.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "^4.20.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

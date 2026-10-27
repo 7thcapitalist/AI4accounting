@@ -1,0 +1,6 @@
+{
+  "status": 403,
+  "mensagens": [
+    { "codigo": "[Aviso-INTEGRA-CONTADOR-403]", "texto": "Sem procuração para o contribuinte." }
+  ]
+}

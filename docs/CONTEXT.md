@@ -36,15 +36,9 @@ The firm's core system is an accounting ERP (Dominio, Alterdata, Questor and oth
 - Errors cost fines. Correctness and auditability beat speed and features. Every agent output must be traceable to its source document.
 - The metric that matters: **hours saved per client per month at the same or lower error rate.**
 
-## First product: not decided yet
+## First product: agent-run monthly fiscal close
 
-Candidates under evaluation:
-
-1. **Document collection**: chasing clients and gathering XMLs and documents.
-2. **Fiscal classification and checking**: importing, classifying and validating invoices and entries.
-3. **Bank reconciliation**: matching bank statements (OFX) against ledger entries.
-
-The choice goes in `docs/decisions/` once made. Until then, build only shared foundations and throwaway prototypes clearly labeled as such.
+Decided in [`docs/decisions/0006-agent-run-monthly-close.md`](decisions/0006-agent-run-monthly-close.md) (supersedes 0003): a team of agents runs the monthly fiscal close of Simples Nacional companies, Lucro Presumido next (capture, collection, checking, reconciliation, tax, delivery) and the accountant reviews exceptions and approves. External services: [0007](decisions/0007-external-services.md). Runtime and LLM: [0008](decisions/0008-agent-runtime-and-llm.md). Target segment Simples and up, MEI out (amends 0006): [0009](decisions/0009-target-segment-simples-and-up.md). Plan: [`docs/ROADMAP.md`](ROADMAP.md).
 
 ## Long-term direction
 
