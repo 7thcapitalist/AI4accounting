@@ -7,6 +7,7 @@ import { CaptureAgent, type CaptureProvider, SimulatorProvider } from "./capture
 import { type ClientResponder, CollectionAgent, SimulatedClient } from "./collection";
 import { Coordinator, type MonthOutcome } from "./coordinator";
 import { prng } from "./prng";
+import { ReconciliationAgent } from "./reconciliation";
 import { simApprover, stubAgents } from "./stubs";
 import type { Agent, Approver } from "./types";
 
@@ -55,6 +56,7 @@ export async function runSimMonth(
     provider: opts.provider ?? new SimulatorProvider(seed),
     dataDir,
   });
+  agents.conciliacao = new ReconciliationAgent({ store });
   agents.coleta = new CollectionAgent({
     store,
     responder: opts.responder ?? new SimulatedClient(new SimulatorProvider(seed)),
