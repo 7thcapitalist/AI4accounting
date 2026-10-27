@@ -7,6 +7,7 @@ import { CaptureAgent, type CaptureProvider, SimulatorProvider } from "./capture
 import { type ClientResponder, CollectionAgent, SimulatedClient } from "./collection";
 import { Coordinator, type MonthOutcome } from "./coordinator";
 import { prng } from "./prng";
+import { ReconciliationAgent } from "./reconciliation";
 import { simApprover, stubAgents } from "./stubs";
 import { SimulatorTaxContext, TaxAgent } from "./tax";
 import type { Agent, Approver } from "./types";
@@ -57,6 +58,7 @@ export async function runSimMonth(
     dataDir,
   });
   agents.apuracao = new TaxAgent({ store, context: new SimulatorTaxContext(seed) });
+  agents.conciliacao = new ReconciliationAgent({ store });
   agents.coleta = new CollectionAgent({
     store,
     responder: opts.responder ?? new SimulatedClient(new SimulatorProvider(seed)),
