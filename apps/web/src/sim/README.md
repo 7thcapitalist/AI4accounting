@@ -43,3 +43,7 @@ The board prefers the real store. `GET /api/board` reads the libSQL file (`AI4_D
 pnpm month:run --sim 2026 --db "$PWD/.data/month.db" --delay 1000 --clients 8   # use an absolute path
 pnpm --filter @ai4a/web dev
 ```
+
+## Demo mode (4.4)
+
+`pnpm demo` starts the web app and runs a fresh simulated month for 15 synthetic clients (seed 2026) into `.data/demo.db`; the board follows it from Captura to Entrega at http://localhost:3000. The month runs by itself with the simulated accountant. `pnpm demo --accountant` stops each client at Aprovacao and waits for the decision in the web queue (the token is printed in the terminal).

@@ -15,7 +15,7 @@ const num = (name: string): number | undefined => {
 const seed = Number(opt("sim"));
 if (!Number.isInteger(seed)) {
   console.error(
-    "usage: pnpm month:run --sim <seed> [--db <file>] [--folder <dir>] [--data <dir>] [--delay <ms>] [--clients <n>] [--accountant]",
+    "usage: pnpm month:run --sim <seed> [--db <file>] [--folder <dir>] [--data <dir>] [--delay <ms>] [--clients <n>] [--parallel] [--accountant]",
   );
   process.exit(2);
 }
@@ -28,7 +28,7 @@ const { outcomes } = await runSimMonth(store, seed, {
   nClients: num("clients"),
   // --accountant: stop at Aprovacao and wait for the decision made in the web queue.
   approver: args.includes("--accountant") ? accountantApprover(store) : undefined,
-  parallel: args.includes("--accountant"),
+  parallel: args.includes("--accountant") || args.includes("--parallel"),
 });
 const events = await store.listEvents();
 const captured = events.filter((e) => e.kind === "document.captured").length;
