@@ -34,3 +34,12 @@ State is a plain JSON-serializable `SimState`. Every function returns a **new** 
 - Legal references in `data.ts` (RIR/2018 art. 714, Lei 10.833/2003 art. 30, LC 123/2006, Resolução CGSN 140/2018, ...) are citations for a **fictional scenario**, not tax advice. A real rules engine belongs in `packages/fiscal-core`.
 - PGDAS-D due day 20 of the following month: LC 123/2006, art. 21, III. IRPJ/CSLL trimestral (Lucro Presumido) is due the last business day of the month after the quarter (Lei 9.430/1996, art. 5º): competence 2026-09 closes Q3, so Fri 2026-10-30. PIS/Cofins monthly are not modelled.
 - Clinic scenario: payer is private (not public entity), so Lei 9.430/1996 art. 64 / IN RFB 1.234/2012 do not apply; IRRF follows RIR/2018 art. 714 (exception for medicine by ambulatório), CSRF follows Lei 10.833/2003 art. 30 / IN SRF 459/2004 art. 1º §2º IV (same criteria as IRRF; Solução de Consulta Cosit 6/2014), so ambulatório means neither is withheld.
+
+## Live mode (4.1)
+
+The board prefers the real store. `GET /api/board` reads the libSQL file (`AI4_DB`, default `<repo>/.data/month.db`) with `readBoard` (`src/store/read-board.ts`), which builds this same `SimState` from phase states, findings, documents and the event log, and the page polls it every 2 s. With no store file the page falls back to the local simulation above. In live mode approve/return are hidden: the Coordinator's approver decides until the accountant flow exists.
+
+```
+pnpm month:run --sim 2026 --db "$PWD/.data/month.db" --delay 1000 --clients 8   # use an absolute path
+pnpm --filter @ai4a/web dev
+```

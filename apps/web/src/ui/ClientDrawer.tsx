@@ -18,6 +18,7 @@ const SEVERITY: Record<string, string> = { baixa: "baixa", media: "média", alta
 export function ClientDrawer({
   sim,
   clientId,
+  readOnly = false,
   onClose,
   onApprove,
   onReturn,
@@ -25,6 +26,7 @@ export function ClientDrawer({
   onAgent,
 }: {
   sim: SimState;
+  readOnly?: boolean;
   clientId: string;
   onClose: () => void;
   onApprove: (id: string) => void;
@@ -58,7 +60,7 @@ export function ClientDrawer({
         </>
       }
       foot={
-        waiting ? (
+        waiting && !readOnly ? (
           <>
             {back && RETURNABLE_AGENTS.includes(back) && (
               <button type="button" className="btn" onClick={() => onReturn(c.id, back)}>
@@ -73,7 +75,9 @@ export function ClientDrawer({
         ) : undefined
       }
     >
-      <section className={`todo ${waiting ? "act" : p.status === "done" ? "done" : "wait"}`}>
+      <section
+        className={`todo ${waiting || p.status === "blocked" ? "act" : p.status === "done" ? "done" : "wait"}`}
+      >
         <h3>O que você precisa fazer</h3>
         {waiting && open.length > 0 && (
           <>
@@ -96,6 +100,27 @@ export function ClientDrawer({
             Tudo conferido, sem exceções. Só falta você aprovar para a Entrega transmitir e mandar a
             guia.
           </p>
+        )}
+        {p.status === "blocked" && (
+          <>
+            <p>
+              A etapa <b>{PHASE_LABEL[p.phase]}</b> está bloqueada e o mês ainda não pode ser
+              entregue.{" "}
+              {open.length > 0
+                ? "Resolva os pontos abaixo ou corrija a origem e rode o mês de novo."
+                : "Nenhuma exceção foi registrada: veja o histórico da etapa (falha do agente ou fechamento devolvido) e rode o mês de novo."}
+            </p>
+            {open.length > 0 && (
+              <ol>
+                {open.map((f) => (
+                  <li key={f.id}>
+                    <b>{f.message}</b>
+                    <span>{f.action}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </>
         )}
         {p.status === "working" && (
           <p>

@@ -6,12 +6,14 @@ import { Icon } from "./icons";
 export function Queue({
   sim,
   queue,
+  readOnly = false,
   onApprove,
   onReturn,
   onOpen,
 }: {
   sim: SimState;
   queue: QueueItem[];
+  readOnly?: boolean;
   onApprove: (id: string) => void;
   onReturn: (id: string, agent?: AgentId) => void;
   onOpen: (id: string) => void;
@@ -27,13 +29,14 @@ export function Queue({
       const item = queue[sel];
       if (e.key === "j") setSel((i) => Math.min(i + 1, queue.length - 1));
       else if (e.key === "k") setSel((i) => Math.max(i - 1, 0));
+      else if (readOnly) return;
       else if (e.key === "a" && item) onApprove(item.client.id);
       else if (e.key === "d" && item?.findings[0]) onReturn(item.client.id, item.findings[0].agent);
       else if (e.key === "Enter" && item) onOpen(item.client.id);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [queue, sel, onApprove, onReturn, onOpen]);
+  }, [queue, sel, readOnly, onApprove, onReturn, onOpen]);
 
   useEffect(() => {
     if (sel >= queue.length) setSel(Math.max(queue.length - 1, 0));
@@ -59,7 +62,7 @@ export function Queue({
           <span className="kbd">a</span> aprovar · <span className="kbd">d</span> devolver ·{" "}
           <span className="kbd">Enter</span> abrir
         </span>
-        {clean.length > 0 && (
+        {!readOnly && clean.length > 0 && (
           <button
             type="button"
             className="btn sm"
@@ -87,7 +90,7 @@ export function Queue({
                 <button type="button" className="btn sm" onClick={() => onOpen(q.client.id)}>
                   Ver detalhes
                 </button>
-                {back && RETURNABLE_AGENTS.includes(back) && (
+                {!readOnly && back && RETURNABLE_AGENTS.includes(back) && (
                   <button
                     type="button"
                     className="btn sm"
@@ -96,10 +99,16 @@ export function Queue({
                     Devolver para {AGENT_LABEL[back]}
                   </button>
                 )}
-                <button type="button" className="btn sm ok" onClick={() => onApprove(q.client.id)}>
-                  <Icon name="check" size={13} />
-                  Aprovar
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    className="btn sm ok"
+                    onClick={() => onApprove(q.client.id)}
+                  >
+                    <Icon name="check" size={13} />
+                    Aprovar
+                  </button>
+                )}
               </div>
             </div>
             {q.findings.length === 0 ? (
