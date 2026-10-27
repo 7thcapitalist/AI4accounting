@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { authorizeAccountant } from "../../../store/authorize";
 import { type Decision, recordDecision } from "../../../store/record-decision";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,12 @@ const DB_PATH = () =>
 
 /** The accountant's decision from the queue: `{ clientId, decision: "approved" | "sent_back" }`. */
 export async function POST(req: Request) {
+  const auth = authorizeAccountant(req);
+  if (auth !== "ok")
+    return Response.json(
+      { error: auth },
+      { status: auth === "unauthorized" ? 401 : 403, headers: { "www-authenticate": "Bearer" } },
+    );
   const body = (await req.json().catch(() => null)) as {
     clientId?: unknown;
     decision?: unknown;

@@ -37,7 +37,13 @@ export async function runSimMonth(
   seed: number,
   opts: SimMonthOptions = {},
 ): Promise<SimMonthResult> {
-  const { month = "2026-09", nClients = 3, delayMs = 0, approver = simApprover, parallel = false } = opts;
+  const {
+    month = "2026-09",
+    nClients = 3,
+    delayMs = 0,
+    approver = simApprover,
+    parallel = false,
+  } = opts;
   const rand = prng(seed ^ 0x9e3779b9);
   const dataDir = opts.dataDir ?? mkdtempSync(join(tmpdir(), "ai4a-capture-"));
   const agents = stubAgents(seed);

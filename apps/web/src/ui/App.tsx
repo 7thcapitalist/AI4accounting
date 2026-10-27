@@ -21,6 +21,7 @@ import { ClientDrawer } from "./ClientDrawer";
 import { HowItWorks } from "./HowItWorks";
 import { Icon } from "./icons";
 import { PhaseDrawer } from "./PhaseDrawer";
+import { postDecision } from "./post-decision";
 import { Queue } from "./Queue";
 
 type View = "painel" | "fila" | "agentes" | "como";
@@ -97,15 +98,26 @@ export function App() {
     return () => clearInterval(id);
   }, [live, fromStore, speed]);
 
-  // In store mode the decision goes to the store (the Coordinator is waiting for it); the next
-  // poll shows the result. In sim mode it changes the local simulation.
-  const decide = useCallback((clientId: string, decision: "approved" | "sent_back") => {
-    void fetch("/api/decision", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ clientId, decision }),
-    }).catch(() => undefined);
-  }, []);
+  // In store mode the decision goes to the store (the Coordinator is waiting for it); it counts as
+  // made only once the server answers ok, and the next poll shows the result. Failures stay visible.
+  const [token, setToken] = useState("");
+  const [pending, setPending] = useState<string | null>(null);
+  const [decideError, setDecideError] = useState<string | null>(null);
+  useEffect(() => setToken(sessionStorage.getItem("ai4-accountant-token") ?? ""), []);
+  const saveToken = (v: string) => {
+    setToken(v);
+    sessionStorage.setItem("ai4-accountant-token", v);
+  };
+  const decide = useCallback(
+    async (clientId: string, decision: "approved" | "sent_back") => {
+      setPending(clientId);
+      setDecideError(null);
+      const r = await postDecision(clientId, decision, token);
+      setPending(null);
+      if (!r.ok) setDecideError(r.message);
+    },
+    [token],
+  );
   const onApprove = useCallback(
     (clientId: string) =>
       fromStore ? decide(clientId, "approved") : setSim((s) => approve(s, clientId)),
@@ -208,6 +220,21 @@ export function App() {
             </p>
           </div>
         </header>
+
+        {(pending || decideError) && (
+          <div className="banner" role={decideError ? "alert" : "status"}>
+            <span>{decideError ?? "Gravando a decisão…"}</span>
+            {decideError && (
+              <input
+                type="password"
+                aria-label="Token do contador"
+                placeholder="Token do contador"
+                value={token}
+                onChange={(e) => saveToken(e.target.value)}
+              />
+            )}
+          </div>
+        )}
 
         {view === "painel" && (
           <Board
