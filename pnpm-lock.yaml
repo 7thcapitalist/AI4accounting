@@ -218,6 +218,9 @@ importers:
       '@ai4a/fiscal-core':
         specifier: workspace:*
         version: link:../fiscal-core
+      '@ai4a/integra-contador':
+        specifier: workspace:*
+        version: link:../integra-contador
       '@ai4a/simulator':
         specifier: workspace:*
         version: link:../simulator

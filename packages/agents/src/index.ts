@@ -5,6 +5,11 @@ export * from "./check";
 export * from "./collection";
 export type { CoordinatorDeps, MonthOutcome } from "./coordinator";
 export { Coordinator, canTransition } from "./coordinator";
+export * from "./delivery";
 export { runSimMonth, type SimMonthOptions } from "./month";
+export * from "./reconciliation";
+// Check and Reconciliation each carry an OFX reader; the package exposes Reconciliation's.
+export { type BankEntry, parseOfx } from "./reconciliation";
 export { simApprover, stubAgents } from "./stubs";
+export * from "./tax";
 export * from "./types";
