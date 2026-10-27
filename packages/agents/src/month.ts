@@ -9,6 +9,7 @@ import { Coordinator, type MonthOutcome } from "./coordinator";
 import { prng } from "./prng";
 import { ReconciliationAgent } from "./reconciliation";
 import { simApprover, stubAgents } from "./stubs";
+import { SimulatorTaxContext, TaxAgent } from "./tax";
 import type { Agent, Approver } from "./types";
 
 export interface SimMonthResult {
@@ -56,6 +57,7 @@ export async function runSimMonth(
     provider: opts.provider ?? new SimulatorProvider(seed),
     dataDir,
   });
+  agents.apuracao = new TaxAgent({ store, context: new SimulatorTaxContext(seed) });
   agents.conciliacao = new ReconciliationAgent({ store });
   agents.coleta = new CollectionAgent({
     store,
