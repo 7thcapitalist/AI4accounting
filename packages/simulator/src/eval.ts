@@ -42,6 +42,10 @@ export interface EvalReport {
   tax: { exact: number; total: number; rate: number | null };
   /** Same score restricted to company-months with no planted error. */
   cleanTax: { exact: number; total: number; rate: number | null };
+  /** Every month whose tax was not exact, so a miss can be traced. */
+  taxMisses: { companyId: string; competencia: string; expected?: Centavos; computed?: Centavos }[];
+  /** Every finding the pipeline reported that is not in the answer key. */
+  falsePositives: { companyId: string; competencia: string; type: ErrorType; ref: string }[];
 }
 
 /** Tax of the month the engines expect, centavos: DAS total, or PIS+COFINS+ISS for Presumido. */
@@ -65,6 +69,8 @@ export async function evaluate(
     ),
   );
   const reported = new Set<string>();
+  const taxMisses: EvalReport["taxMisses"] = [];
+  const falsePositives: EvalReport["falsePositives"] = [];
   let exact = 0;
   let total = 0;
   let cleanExact = 0;
@@ -83,11 +89,28 @@ export async function evaluate(
         },
         month,
       });
-      for (const f of result.findings)
-        reported.add(keyOf(company.id, month.competencia, f.type, f.ref));
+      for (const f of result.findings) {
+        const k = keyOf(company.id, month.competencia, f.type, f.ref);
+        if (reported.has(k)) continue;
+        reported.add(k);
+        if (!planted.has(k))
+          falsePositives.push({
+            companyId: company.id,
+            competencia: month.competencia,
+            type: f.type,
+            ref: f.ref,
+          });
+      }
       total++;
       const isExact = result.tax !== undefined && result.tax === expectedMonthlyTax(expected);
       if (isExact) exact++;
+      else
+        taxMisses.push({
+          companyId: company.id,
+          competencia: month.competencia,
+          expected: expectedMonthlyTax(expected),
+          computed: result.tax,
+        });
       if (!dirty.has(`${company.id}|${month.competencia}`)) {
         cleanTotal++;
         if (isExact) cleanExact++;
@@ -115,6 +138,8 @@ export async function evaluate(
     byType,
     tax: { exact, total, rate: ratio(exact, total) },
     cleanTax: { exact: cleanExact, total: cleanTotal, rate: ratio(cleanExact, cleanTotal) },
+    taxMisses,
+    falsePositives,
   };
 }
 
@@ -134,5 +159,12 @@ export function formatReport(r: EvalReport): string {
     ...rows,
     `tax exact to the centavo: ${r.tax.exact}/${r.tax.total} (${pct(r.tax.rate).trim()})`,
     `  in clean company-months:  ${r.cleanTax.exact}/${r.cleanTax.total} (${pct(r.cleanTax.rate).trim()})`,
+    ...r.taxMisses.map(
+      (m) =>
+        `  tax miss ${m.companyId} ${m.competencia}: expected ${m.expected ?? "n/a"}, computed ${m.computed ?? "n/a"}`,
+    ),
+    ...r.falsePositives.map(
+      (f) => `  false positive ${f.type} ${f.companyId} ${f.competencia} ref ${f.ref}`,
+    ),
   ].join("\n");
 }
