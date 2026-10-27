@@ -12,7 +12,7 @@
     "test": "vitest run",
     "build": "pnpm -r build",
     "month:run": "pnpm --filter @ai4a/agents month:run",
-    "eval": "pnpm --filter @ai4a/simulator eval"
+    "eval": "pnpm --filter @ai4a/agents eval"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

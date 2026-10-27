@@ -6,6 +6,7 @@ import { generatePortfolio } from "@ai4a/simulator";
 import { CaptureAgent, type CaptureProvider, SimulatorProvider } from "./capture";
 import { Coordinator, type MonthOutcome } from "./coordinator";
 import { prng } from "./prng";
+import { ReconciliationAgent } from "./reconciliation";
 import { simApprover, stubAgents } from "./stubs";
 import type { Agent } from "./types";
 
@@ -42,6 +43,7 @@ export async function runSimMonth(
     provider: opts.provider ?? new SimulatorProvider(seed),
     dataDir,
   });
+  agents.conciliacao = new ReconciliationAgent({ store });
   await store.db.insert(firms).values({ id: "firm-sim", name: "Escritorio Simulado" });
   let tick = 0;
   const outcomes: Record<string, MonthOutcome> = {};
