@@ -143,6 +143,34 @@ describe("rules", () => {
     expect(g.find((x) => x.ref === toCompany.ref)?.severity).toBe("info");
   });
 
+  it("NFS-e duplicate identity is numero + prestador", () => {
+    const c = nfseSimples();
+    const a = c.m.documents.find((d) => d.kind === "nfse" && d.role === "saida");
+    if (!a) throw new Error("no nfse");
+    const dups = (docs: SimDocument[]) =>
+      runChecks(inputOf(c, docs)).filter((x) => x.errorType === "duplicate");
+    expect(dups([a, { ...a, file: "copy.xml" }]).length).toBe(1);
+    const otherPrest = swap(a, /(<prest>\s*<CNPJ>)\d{14}/, "$100000000000191");
+    expect(dups([a, { ...otherPrest, file: "other.xml" }])).toEqual([]);
+  });
+
+  it("only homologated cancellation (cStat 101/151) is CHECK-CANCELADA", () => {
+    const c = nfeCompany();
+    const a = c.m.documents[0];
+    if (!a) throw new Error("no doc");
+    const run = (cStat: string) =>
+      runChecks(inputOf(c, [swap(a, "<cStat>100</cStat>", `<cStat>${cStat}</cStat>`)]));
+    expect(run("101").some((x) => x.ruleId === "CHECK-CANCELADA")).toBe(true);
+    expect(run("151").some((x) => x.ruleId === "CHECK-CANCELADA")).toBe(true);
+    for (const st of ["301", "302", "110", "204"]) {
+      const got = run(st);
+      expect(got.some((x) => x.ruleId === "CHECK-CANCELADA" || x.errorType === "cancelled")).toBe(
+        false,
+      );
+      expect(got.some((x) => x.ruleId === "CHECK-ILEGIVEL")).toBe(true);
+    }
+  });
+
   it("flags cancelled, duplicate and foreign documents", () => {
     const c = nfeCompany();
     const [a, b, d] = c.m.documents;

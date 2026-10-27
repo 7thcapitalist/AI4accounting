@@ -79,6 +79,9 @@ const VALID_CSOSN = new Set(["101", "102", "103", "201", "202", "203", "300", "4
 
 const issueRef = (xml: string, tag: string) =>
   new RegExp(`<${tag}>([^<]+)</${tag}>`).exec(xml)?.[1];
+const cStatOf = (xml: string) => /<infProt[^>]*>[\s\S]*?<cStat>(\d+)<\/cStat>/.exec(xml)?.[1];
+/** cStat 101/151 = cancelamento homologado; 110/301/302 (denegada) e rejeicoes nao sao cancelamento. */
+const isCancelledStatus = (cStat: string | undefined) => cStat === "101" || cStat === "151";
 const nfeChaveOf = (xml: string) => /Id="NFe(\d{44})"/.exec(xml)?.[1];
 
 function checkNfe(c: CheckClient, doc: CheckDoc, d: NfeDocument, out: CheckFinding[]) {
@@ -196,13 +199,13 @@ export function runChecks(input: CheckInput): CheckFinding[] {
   const mine = normalizeCnpj(input.client.cnpj);
   const seen = new Map<string, CheckDoc>();
   const reported = new Set<string>();
-  const dup = (ref: string, doc: CheckDoc) => {
-    if (!seen.has(ref)) {
-      seen.set(ref, doc);
+  const dup = (ref: string, doc: CheckDoc, identity = ref) => {
+    if (!seen.has(identity)) {
+      seen.set(identity, doc);
       return;
     }
-    if (reported.has(ref)) return;
-    reported.add(ref);
+    if (reported.has(identity)) return;
+    reported.add(identity);
     out.push({
       ruleId: "CHECK-DUPLICADO",
       errorType: "duplicate",
@@ -232,7 +235,12 @@ export function runChecks(input: CheckInput): CheckFinding[] {
         d = parseNfeProc(doc.xml);
       } catch (e) {
         const chave = nfeChaveOf(doc.xml);
-        if (e instanceof NfeParseError && e.code === "not_authorized" && chave) {
+        if (
+          e instanceof NfeParseError &&
+          e.code === "not_authorized" &&
+          chave &&
+          isCancelledStatus(cStatOf(doc.xml))
+        ) {
           dup(chave, doc);
           out.push({
             ruleId: "CHECK-CANCELADA",
@@ -268,7 +276,8 @@ export function runChecks(input: CheckInput): CheckFinding[] {
       } catch (e) {
         const numero = issueRef(doc.xml, "nNFSe") ?? doc.id;
         if (e instanceof NfseParseError && /neither/.test(e.message)) {
-          dup(numero, doc);
+          const prest = /<prest>\s*<CNPJ>(\d{14})<\/CNPJ>/.exec(doc.xml)?.[1] ?? "";
+          dup(numero, doc, `${prest}/${numero}`);
           foreign(numero, doc);
         } else {
           out.push({
@@ -282,7 +291,7 @@ export function runChecks(input: CheckInput): CheckFinding[] {
         }
         continue;
       }
-      dup(d.numero, doc);
+      dup(d.numero, doc, `${d.prestador.cnpj}/${d.numero}`);
       if (d.role === "saida") checkNfseIssued(input.client, doc, d, out);
       else checkNfseTaken(input, doc, d, out);
     }
