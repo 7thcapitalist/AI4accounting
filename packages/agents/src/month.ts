@@ -1,12 +1,25 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { clients, competencias, firms, PHASES, type Phase, type Store } from "@ai4a/db";
+import { generatePortfolio } from "@ai4a/simulator";
+import { CaptureAgent, type CaptureProvider, SimulatorProvider } from "./capture";
 import { Coordinator, type MonthOutcome } from "./coordinator";
 import { prng } from "./prng";
 import { simApprover, stubAgents } from "./stubs";
 import type { Agent, Approver } from "./types";
 
+export interface SimMonthResult {
+  outcomes: Record<string, MonthOutcome>;
+}
+
 export interface SimMonthOptions {
   month?: string;
   nClients?: number;
+  /** Where captured files go; defaults to a fresh temp dir. */
+  dataDir?: string;
+  /** Capture source; defaults to the SimulatorProvider for the seed. */
+  provider?: CaptureProvider;
   /** Pause (ms) before each agent works, so a board watching the store sees the month progress. */
   delayMs?: number;
   /** Who approves; defaults to the simulated accountant. Pass `accountantApprover` to wait for the web queue. */
@@ -15,42 +28,45 @@ export interface SimMonthOptions {
   parallel?: boolean;
 }
 
-export interface SimMonthResult {
-  outcomes: Record<string, MonthOutcome>;
-}
-
-/** Runs a simulated month for a few synthetic clients with stub agents. No real data. */
+/**
+ * Runs a simulated month for the first synthetic companies of the seeded portfolio: the Capture
+ * agent pulls their documents, the other phases are still stubs. No real data.
+ */
 export async function runSimMonth(
   store: Store,
   seed: number,
-  {
-    month = "2026-09",
-    nClients = 3,
-    delayMs = 0,
-    approver = simApprover,
-    parallel = false,
-  }: SimMonthOptions = {},
+  opts: SimMonthOptions = {},
 ): Promise<SimMonthResult> {
+  const { month = "2026-09", nClients = 3, delayMs = 0, approver = simApprover, parallel = false } = opts;
   const rand = prng(seed ^ 0x9e3779b9);
+  const dataDir = opts.dataDir ?? mkdtempSync(join(tmpdir(), "ai4a-capture-"));
+  const agents = stubAgents(seed);
+  agents.captura = new CaptureAgent({
+    store,
+    provider: opts.provider ?? new SimulatorProvider(seed),
+    dataDir,
+  });
   await store.db.insert(firms).values({ id: "firm-sim", name: "Escritorio Simulado" });
-  const regimes = ["simples", "presumido"];
   let tick = 0;
   const outcomes: Record<string, MonthOutcome> = {};
   const coord = new Coordinator({
     store,
-    agents: withDelay(stubAgents(seed), delayMs),
+    agents: withDelay(agents, delayMs),
     approver,
     now: () => ++tick,
   });
-  for (let i = 1; i <= nClients; i++) {
+  const { companies } = generatePortfolio(seed, [month]);
+  const picked = companies.slice(0, nClients);
+  for (const [n, { company }] of picked.entries()) {
+    const i = n + 1;
     const clientId = `client-${i}`;
     const cid = `comp-${i}-${month}`;
-    const regime = regimes[Math.floor(rand() * regimes.length)] ?? "simples";
+    const regime = company.profile.regime;
     await store.db.insert(clients).values({
       id: clientId,
       firmId: "firm-sim",
-      name: `Cliente Simulado ${i}`,
-      cnpj: `SIM${String(i).padStart(11, "0")}`,
+      name: company.name,
+      cnpj: company.cnpj,
       regime,
     });
     await store.db.insert(competencias).values({ id: cid, clientId, month });
@@ -67,7 +83,7 @@ export async function runSimMonth(
     });
   }
   // Every client is on the board from the start; the phases then fill in one client at a time.
-  const cids = Array.from({ length: nClients }, (_, i) => `comp-${i + 1}-${month}`);
+  const cids = picked.map((_, n) => `comp-${n + 1}-${month}`);
   if (parallel) {
     const done = await Promise.all(cids.map((cid) => coord.runCompetencia(cid)));
     cids.forEach((cid, i) => {
