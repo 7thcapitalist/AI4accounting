@@ -40,6 +40,8 @@ export interface EvalReport {
   planted: number;
   byType: TypeScore[];
   tax: { exact: number; total: number; rate: number | null };
+  /** Same score restricted to company-months with no planted error. */
+  cleanTax: { exact: number; total: number; rate: number | null };
 }
 
 /** Tax of the month the engines expect, centavos: DAS total, or PIS+COFINS+ISS for Presumido. */
@@ -65,7 +67,10 @@ export async function evaluate(
   const reported = new Set<string>();
   let exact = 0;
   let total = 0;
+  let cleanExact = 0;
+  let cleanTotal = 0;
   let months = 0;
+  const dirty = new Set(portfolio.answerKey.map((a) => `${a.companyId}|${a.competencia}`));
   for (const { company, months: ms } of portfolio.companies) {
     for (const { expected, ...month } of ms) {
       months++;
@@ -81,7 +86,12 @@ export async function evaluate(
       for (const f of result.findings)
         reported.add(keyOf(company.id, month.competencia, f.type, f.ref));
       total++;
-      if (result.tax !== undefined && result.tax === expectedMonthlyTax(expected)) exact++;
+      const isExact = result.tax !== undefined && result.tax === expectedMonthlyTax(expected);
+      if (isExact) exact++;
+      if (!dirty.has(`${company.id}|${month.competencia}`)) {
+        cleanTotal++;
+        if (isExact) cleanExact++;
+      }
     }
   }
   const byType = ERROR_TYPES.map((type): TypeScore => {
@@ -104,6 +114,7 @@ export async function evaluate(
     planted: planted.size,
     byType,
     tax: { exact, total, rate: ratio(exact, total) },
+    cleanTax: { exact: cleanExact, total: cleanTotal, rate: ratio(cleanExact, cleanTotal) },
   };
 }
 
@@ -122,5 +133,6 @@ export function formatReport(r: EvalReport): string {
     `${"error type".padEnd(24)}   tp   fp   fn   prec.  recall`,
     ...rows,
     `tax exact to the centavo: ${r.tax.exact}/${r.tax.total} (${pct(r.tax.rate).trim()})`,
+    `  in clean company-months:  ${r.cleanTax.exact}/${r.cleanTax.total} (${pct(r.cleanTax.rate).trim()})`,
   ].join("\n");
 }
